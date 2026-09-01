@@ -1,0 +1,17 @@
+[package]
+name = "mindcache"
+version = "0.1.0"
+edition = "2021"
+description = "MindCache — filesystem-first personal knowledge base CLI (command: mind)"
+
+[[bin]]
+name = "mind"
+path = "src/main.rs"
+
+[dependencies]
+chrono = "0.4"
+comrak = "0.34"
+
+[profile.release]
+strip = true
+lto = true
