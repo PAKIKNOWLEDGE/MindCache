@@ -26,11 +26,11 @@ MindCache 的数据层是纯文件系统：Markdown + frontmatter + 目录结构
 
 ```
 YYYYMMDD-HHMM-短slug.md
-例如：20260831-1840-agent-注意力分配.md
+例如：20260831-1840-agent-attention.md
 ```
 
 - 前缀是**本地时间**的创建时间戳，精确到分钟。
-- slug：小写字母、数字、连字符，可保留 CJK 字符；其余符号丢弃。
+- slug：**仅限 ASCII 字符**（小写字母、数字、连字符），禁止 CJK 及其他非 ASCII 字符。中文标题放在 frontmatter 的 `title` 字段中。
 - 时间戳前缀一旦写入**不可修改**——它是文件身份，也天然避免多 Agent 并发冲突。
 - 重命名（改 slug）可以，但必须保留时间戳前缀。
 
