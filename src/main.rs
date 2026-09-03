@@ -211,6 +211,9 @@ fn fmt_created(s: &str) -> String {
 }
 
 fn valid_filename(stem: &str) -> bool {
+    if !stem.is_ascii() {
+        return false; // SPEC: 文件名仅限 ASCII
+    }
     let b = stem.as_bytes();
     if b.len() < 14 {
         return false;
@@ -312,16 +315,12 @@ fn cmd_init(vault: PathBuf) {
 // ---------------------------------------------------------------- new
 
 fn slugify(s: &str) -> String {
+    // SPEC: slug 仅限 ASCII（小写字母、数字、连字符），非 ASCII 字符丢弃
     let mut out = String::new();
     let mut prev_dash = true; // 抑制开头连字符
     for c in s.chars() {
         let c = c.to_ascii_lowercase();
         if c.is_ascii_lowercase() || c.is_ascii_digit() {
-            out.push(c);
-            prev_dash = false;
-        } else if ('\u{4e00}'..='\u{9fff}').contains(&c)
-            || ('\u{3040}'..='\u{30ff}').contains(&c)
-        {
             out.push(c);
             prev_dash = false;
         } else if !prev_dash {
@@ -387,7 +386,7 @@ fn cmd_check(vault: PathBuf, single: Option<PathBuf>) {
                      errs: &mut Vec<(String, String)>, ok: &mut usize| {
         let mut es: Vec<String> = Vec::new();
         if !valid_filename(&stem) {
-            es.push("文件名不符合 YYYYMMDD-HHMM-slug 格式".into());
+            es.push("文件名不符合 YYYYMMDD-HHMM-ascii-slug 格式（仅限 ASCII）".into());
         }
         match parse_fm(&text) {
             Ok(fm) => {
@@ -460,7 +459,7 @@ fn cmd_check(vault: PathBuf, single: Option<PathBuf>) {
                 let rel = format!("{}/{}.md", e.dir, e.stem);
                 let mut es: Vec<String> = Vec::new();
                 if !valid_filename(&e.stem) {
-                    es.push("文件名不符合 YYYYMMDD-HHMM-slug 格式".into());
+                    es.push("文件名不符合 YYYYMMDD-HHMM-ascii-slug 格式（仅限 ASCII）".into());
                 }
                 if !TYPES.contains(&e.fm.type_.as_str()) {
                     es.push(format!("type 无效: \"{}\"", e.fm.type_));
@@ -609,6 +608,8 @@ h1.entry{font-size:34px;font-style:italic;font-weight:400;margin:6px 0 18px;line
 "###;
 
 fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line: &str) -> String {
+    // 只有详情页位于 pages/ 子目录（nav_active 为空），根级链接才需要 ../ 前缀
+    let root = if nav_active.is_empty() { "../" } else { "" };
     let nav = [
         ("index.html", "INDEX", "index"),
         ("inbox.html", "INBOX", "inbox"),
@@ -619,7 +620,7 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
     .iter()
     .map(|(href, name, key)| {
         let class = if *key == nav_active { " class=\"on\"" } else { "" };
-        format!("<a href=\"{href}\"{class}>{name}</a>")
+        format!("<a href=\"{root}{href}\"{class}>{name}</a>")
     })
     .collect::<Vec<_>>()
     .join("");
@@ -633,7 +634,6 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
 {body}\n\
 <div class=\"statusbar\"><span>MIND v{VERSION}</span><span>{built}</span></div>\n\
 </div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,1000);}}\nvar g=document.getElementById('greet');if(g){{var h=new Date().getHours();g.textContent=h<5?'Good night.':h<12?'Good morning.':h<18?'Good afternoon.':'Good evening.';}}\n}})();\n</script>\n</body>\n</html>\n",
-        root = if nav_active == "index" { "" } else { "../" },
     )
 }
 
