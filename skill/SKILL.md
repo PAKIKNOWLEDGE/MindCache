@@ -5,7 +5,7 @@ description: 操作用户的个人知识库 MindCache（~/mind/）。当用户�
 
 # MindCache — 个人知识库操作
 
-用户的个人知识库在 `~/mind/`（若环境变量 `MIND_VAULT` 存在则以其为准）。
+用户的个人知识库 vault 位置以 `mind path` 的输出为准（默认 `~/mind/`，可通过 config 文件、`MIND_VAULT` 环境变量或 `--vault` 参数改变）。
 数据层是纯 Markdown + YAML frontmatter，格式规范见仓库 `SPEC.md`。你是一个客户端，不是数据的所有者。
 
 ## 捕获（用户说"记一下……"）
@@ -39,8 +39,11 @@ description: 操作用户的个人知识库 MindCache（~/mind/）。当用户�
 ## 检索（用户问"我之前是不是想过……"）
 
 ```bash
-rg -l "关键词" ~/mind/          # 找文件
-rg -i -C 2 "关键词" ~/mind/     # 带上下文
+V="$(mind path)"
+rg -l "关键词" "$V"          # 找文件
+rg -i -C 2 "关键词" "$V"     # 带上下文
+# rg 不可用时兜底：
+grep -rn --include='*.md' "关键词" "$V"
 ```
 
 - 多试几个同义关键词（中英文都试）。
@@ -61,9 +64,9 @@ rg -i -C 2 "关键词" ~/mind/     # 带上下文
 - 不改 frontmatter 字段名，不自创字段。
 - 不删除 `archive/` 里的任何内容。
 - 不发明私有语法（wiki-link、私有 callout 等），只用标准 Markdown。
-- 不在 `~/mind/` 之外放置 vault 数据。
+- 不把 vault 数据写到配置的 vault 目录（`mind path`）之外。
 
 ## 维护
 
-- vault 应当是 git 仓库（`mind init` 会初始化）。每次写完可以 `git -C ~/mind add -A && git -C ~/mind commit -m "<简述>"` 作为安全网。
-- dashboard 由 `mind build` 生成在 `~/mind/dist/`，`mind serve` 在局域网提供访问。
+- vault 应当是 git 仓库（`mind init` 会初始化）。每次写完可以 `git -C "$(mind path)" add -A && git -C "$(mind path)" commit -m "<简述>"` 作为安全网；若 commit 因缺少 user.name/user.email 失败，告知用户配置一次即可，不要自行改全局 git 配置。
+- dashboard 由 `mind build` 生成在 vault 的 `dist/` 目录下，`mind serve` 在局域网提供访问。

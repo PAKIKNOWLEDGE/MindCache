@@ -125,6 +125,66 @@ Vault location precedence: --vault PATH > $MIND_VAULT > ~/.config/mind/config.to
     exit(0);
 }
 
+// ---------------------------------------------------------------- config
+
+/// ~/.config/mind/config.toml（尊重 XDG_CONFIG_HOME）
+fn config_file() -> PathBuf {
+    let base = env::var("XDG_CONFIG_HOME")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home_dir().join(".config"));
+    base.join("mind").join("config.toml")
+}
+
+/// 从 config 读 vault 路径（只认 `vault = "..."` 行，其余键留给未来扩展）
+fn config_vault() -> Option<PathBuf> {
+    let text = fs::read_to_string(config_file()).ok()?;
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(v) = t.strip_prefix("vault") {
+            let v = v.trim().strip_prefix('=')?.trim();
+            let v = v.trim_matches('"').trim_matches('\'');
+            if !v.is_empty() {
+                return Some(PathBuf::from(v));
+            }
+        }
+    }
+    None
+}
+
+/// 记录 vault 位置到 config（已有文件则只替换/追加 vault 行）
+fn save_config_vault(vault: &Path) {
+    let cf = config_file();
+    if let Some(parent) = cf.parent() {
+        fs::create_dir_all(parent)
+            .unwrap_or_else(|e| die(&format!("写配置失败（无法创建 {}）: {e}", parent.display())));
+    }
+    let new_line = format!("vault = \"{}\"", vault.display());
+    let content = fs::read_to_string(&cf).unwrap_or_default();
+    let mut replaced = false;
+    let mut out: Vec<String> = content
+        .lines()
+        .map(|l| {
+            if l.trim_start().starts_with("vault") {
+                replaced = true;
+                new_line.clone()
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    if !replaced {
+        if !out.is_empty() {
+            out.push(String::new()); // 与已有内容空一行
+        }
+        out.push("# MindCache vault location (resolved by `mind path`)".into());
+        out.push(new_line);
+    }
+    fs::write(&cf, out.join("\n") + "\n")
+        .unwrap_or_else(|e| die(&format!("写配置失败 ({}): {e}", cf.display())));
+}
+
 fn extract_vault(args: &[String]) -> PathBuf {
     explicit_vault(args)
         .or_else(|| {
@@ -133,6 +193,7 @@ fn extract_vault(args: &[String]) -> PathBuf {
                 .filter(|s| !s.is_empty())
                 .map(PathBuf::from)
         })
+        .or_else(config_vault)
         .unwrap_or_else(default_vault)
 }
 
@@ -409,8 +470,10 @@ fn cmd_init(vault: &Path) {
         }
         _ => println!("（git 不可用或已存在仓库，跳过 git init）"),
     }
-    println!("vault 就绪: {}", vault.display());
-    println!("下一步: mind new thought \"hello world\"");
+    save_config_vault(vault);
+    println!("vault 位置已记录到 {}", config_file().display());
+    println!("vault 就绪: {}（后续命令自动解析，脚本可用 mind path 获取）", vault.display());
+    println!("下一步: mind new idea \"hello world\"");
 }
 
 // ---------------------------------------------------------------- new
@@ -1021,7 +1084,22 @@ fn cmd_serve(vault: PathBuf, port: u16) {
     let addr = format!("0.0.0.0:{port}");
     let listener = std::net::TcpListener::bind(&addr)
         .unwrap_or_else(|e| die(&format!("监听 {addr} 失败: {e}")));
-    println!("serving {}/dist at http://{addr} (Ctrl+C 停止)", vault.display());
+    // 探测本机局域网地址（UDP connect 不发包），给出可点击的 URL
+    let host = std::net::UdpSocket::bind("0.0.0.0:0")
+        .ok()
+        .and_then(|s| {
+            if s.connect("8.8.8.8:80").is_ok() {
+                s.local_addr().ok()
+            } else {
+                None
+            }
+        })
+        .map(|a| a.ip().to_string())
+        .unwrap_or_else(|| "127.0.0.1".to_string());
+    println!(
+        "serving {}/dist at http://{host}:{port} (Ctrl+C 停止)",
+        vault.display()
+    );
     for stream in listener.incoming() {
         let Ok(mut stream) = stream else { continue };
         let dist = dist.clone();

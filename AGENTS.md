@@ -6,23 +6,24 @@
 ## 前提
 
 - `mind` 命令已在 PATH 中。二进制的构建与安装是**用户的职责**，不是你的——先 `which mind` 确认；若不可用，如实告知用户并停止，不要自行构建或安装。
+- 检索依赖 `rg`（ripgrep）——先 `which rg` 确认；若缺失，告知用户安装，不要自行安装。
 - 你对用户 home 目录有读写权限。
 
 ## 第 1 步：初始化 vault
 
 ```bash
-mind init        # 默认 ~/mind，可用 MIND_VAULT 环境变量改位置
-mind check       # 应显示若干 ok、0 error
+mind init        # 默认 ~/mind，可 mind init /某/路径 指定；位置会记录进 ~/.config/mind/config.toml
+mind check       # 应显示 0 error（vault 为空时 0 ok 属正常）
 ```
 
-`init` 会创建 `~/mind/{inbox,todo,ideas,notes,archive}` 并执行 `git init` 作为数据安全网。
+`init` 会创建 `~/mind/{inbox,todo,ideas,notes,archive}`、执行 `git init`，并把 vault 位置写入 config。之后所有命令自动解析该位置，脚本用 `mind path` 获取。
 
 ## 第 2 步：写入第一条真实数据并生成视图
 
 ```bash
-mind new thought "hello world"   # 记下部署完成的时刻
-mind build
-ls ~/mind/dist/                  # 应有 index.html + 4 个分页 + pages/
+mind new idea "hello world"     # 记下部署完成的时刻
+mind check; mind build
+ls ~/mind/dist/                  # 应有 index.html + style.css + 4 个分页 + pages/
 ```
 
 ## 第 3 步：常驻服务（可选，局域网访问 dashboard）
@@ -34,6 +35,8 @@ ls ~/mind/dist/                  # 应有 index.html + 4 个分页 + pages/
 Description=MindCache dashboard server
 
 [Service]
+# 路径假设经 nix-env 安装（~/.nix-profile/bin/mind）；
+# vault 非默认位置时追加 --vault /实际/路径
 ExecStart=%h/.nix-profile/bin/mind serve --port 8181
 Restart=on-failure
 
