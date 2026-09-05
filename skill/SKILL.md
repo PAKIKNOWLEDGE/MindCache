@@ -10,29 +10,30 @@ description: 操作用户的个人知识库 MindCache（~/mind/）。当用户�
 
 ## 捕获（用户说"记一下……"）
 
-1. 判断类型：
+1. 判断类型（只有三种）：
    - 明确要做的事、任务 → `todo`（写入 `todo/`）
-   - 灵感、点子 → `idea`（写入 `ideas/`）
-   - 一时的念头、观点、随想 → `thought`（写入 `ideas/`）
+   - 想法、念头、观点、灵感 → `idea`（写入 `ideas/`）
    - 知识、事实、整理过的信息 → `note`（写入 `notes/`）
-   - **拿不准 → 写入 `inbox/`，type 取最接近的一个。** 宁可进 inbox，不要追问用户。
+   - **拿不准 → `mind new <type> --inbox "标题"` 落入 `inbox/`，type 取最接近的一个。** 宁可进 inbox，不要追问用户。
 2. 创建文件：
 
    ```bash
-   mind new <type> "标题"
+   mind new <type> "标题"          # 拿不准时加 --inbox
    ```
 
-   它会生成带时间戳文件名的模板文件并打印路径。然后用编辑操作把正文填进去：
+   它会生成带时间戳文件名的模板文件并打印路径。正文写在**文件末尾（第二个 `---` 之后，模板尾部已留空行）**，用编辑操作追加即可：
    - `title` 用一句概括，不要把整句话塞进 title
    - `created` 已由模板生成，不要改
    - `tags` 打 1–3 个自由标签，宁缺勿滥
-   - todo 加 `status: open`（模板已含），有明确截止时间才写 `due`
+   - todo 模板已含 `status: open`，有明确截止时间才写 `due`
    - 正文保留用户的原话为主，可做轻度整理，不要虚构扩写
 3. 校验并刷新视图：
 
    ```bash
-   mind check && mind build
+   mind check; mind build
    ```
+
+   `check` 是报告不是闸门：它对个别坏文件报错并退出非零，但 `build` 会跳过坏文件照常生成视图——**不要因 check 失败而跳过 build**，把 check 报出的问题向用户汇报即可（否则一个坏文件会让整个 dashboard 停更）。
 
 4. 向用户简短确认记了什么、放在哪。
 
@@ -53,10 +54,10 @@ grep -rn --include='*.md' "关键词" "$V"
 
 ## 修改与归档
 
-- 改 todo 状态：把 frontmatter 的 `status` 改为 `done`，不挪目录、不删文件。
+- 完成 todo：`status` 改为 `done`，**同时写入 `done: 当天日期`**（如 `done: 2026-09-05`）；重开时改回 `open` 并删除 `done` 字段。不挪目录、不删文件。
 - 归档：把文件 `mv` 进 `archive/`，frontmatter 不变。
-- 用户说"整理一下 inbox"时：逐条读 `inbox/`，按上面的分类规则移到正确目录，改正缺失/错误的必填字段，最后跑 `mind check && mind build`，汇报移动了哪些。
-- 修改后必须跑 `mind check && mind build`。
+- 用户说"整理一下 inbox"时：逐条读 `inbox/`，按上面的分类规则移到正确目录，改正缺失/错误的必填字段，最后跑 `mind check; mind build`，汇报移动了哪些。
+- 修改后必须跑 `mind check; mind build`（同上，check 失败不阻塞 build，但要汇报）。
 
 ## 禁止
 

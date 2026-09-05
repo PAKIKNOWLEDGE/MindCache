@@ -5,13 +5,13 @@ MindCache 的数据层是纯文件系统：Markdown + frontmatter + 目录结构
 
 ## 1. Vault 目录结构
 
-默认位置 `~/mind/`（可用环境变量 `MIND_VAULT` 覆盖）：
+默认位置 `~/mind/`。实际位置以 `mind path` 输出为准——优先级：`--vault` 参数 > `MIND_VAULT` 环境变量 > `~/.config/mind/config.toml`（`mind init` 自动写入）> 默认：
 
 ```
 ~/mind/
 ├── inbox/      拿不准分类的内容，Agent 的兜底去处
 ├── todo/       待办（type: todo）
-├── ideas/      想法、念头（type: thought / idea）
+├── ideas/      想法、念头（type: idea）
 ├── notes/      知识性内容、笔记（type: note）
 └── archive/    归档，任何 type 都可以放进来
 ```
@@ -42,10 +42,10 @@ YAML，紧跟文件开头的 `---` 块。
 
 | 字段     | 说明                                            |
 | -------- | ----------------------------------------------- |
-| `type`   | `thought` \| `todo` \| `idea` \| `note`         |
+| `type`   | `idea` \| `todo` \| `note`（`thought` 是 `idea` 的历史别名，读取时归一为 `idea`，新写入一律用 `idea`） |
 | `title`  | 标题，一行字符串，不空                            |
 | `created`| ISO 8601，建议带本地时区偏移，如 `2026-08-31T18:40:00+08:00` |
-| `tags`   | YAML 列表，自由填写，**无受控词表**；可为空 `[]`   |
+| `tags`   | YAML 列表（块式 `- x` 或行内 `[a, b]` 均可），自由填写，**无受控词表**；可为空 `[]`   |
 
 todo 额外字段：
 
@@ -53,12 +53,13 @@ todo 额外字段：
 | -------- | --------------------------------------- |
 | `status` | `open` \| `done`，缺省按 `open` 处理      |
 | `due`    | 可选，`YYYY-MM-DD`                       |
+| `done`   | 可选，`YYYY-MM-DD`，完成日期；`status` 翻转为 `done` 时写入，重开时删除 |
 
 示例：
 
 ```markdown
 ---
-type: thought
+type: idea
 title: AI 与注意力分配
 created: 2026-08-31T18:40:00+08:00
 tags:
@@ -93,7 +94,7 @@ tags: []
 
 ## 5. 状态机
 
-- `todo`：`open → done`（改 frontmatter 的 `status`）。完成的 todo 不挪目录、不删文件。
+- `todo`：`open → done` 时把 `status` 改为 `done` 并写入 `done: 当天日期`；重开时 `status` 改回 `open` 并删除 `done` 字段。完成的 todo 不挪目录、不删文件。
 - 任何条目归档 = 移入 `archive/`，frontmatter 不变。
 
 ## 6. 派生物

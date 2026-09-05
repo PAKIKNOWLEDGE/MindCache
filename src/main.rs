@@ -228,6 +228,7 @@ struct Fm {
     created: String,
     status: Option<String>,
     due: Option<String>,
+    done: Option<String>,
     tags: Vec<String>,
 }
 
@@ -313,6 +314,7 @@ fn parse_fm(text: &str) -> Result<Fm, String> {
             "created" => fm.created = v,
             "status" => fm.status = Some(v),
             "due" => fm.due = Some(v),
+            "done" => fm.done = Some(v),
             "tags" => {
                 // 支持 YAML 块式列表（后续 "- item" 行）与行内 flow 列表 [a, b]
                 if v == "[]" {
@@ -333,6 +335,9 @@ fn parse_fm(text: &str) -> Result<Fm, String> {
             }
             _ => {} // 未知字段容忍读取，check 不强制
         }
+    }
+    if fm.type_ == "thought" {
+        fm.type_ = "idea".to_string(); // SPEC: thought 是 idea 的历史别名
     }
     Ok(fm)
 }
@@ -467,6 +472,23 @@ fn cmd_init(vault: &Path) {
     match inited {
         Ok(o) if o.status.success() => {
             println!("git 仓库已初始化");
+            // 新机器常缺 user.name/email，agent 的安全网 commit 会因此失败；
+            // 仅在完全未配置时写 repo-local 兜底身份（不碰全局配置）
+            for (k, v) in [("user.name", "mindcache"), ("user.email", "mindcache@localhost")] {
+                let has = std::process::Command::new("git")
+                    .args(["config", k])
+                    .current_dir(&vault)
+                    .output()
+                    .map(|o| o.status.success() && !o.stdout.is_empty())
+                    .unwrap_or(false);
+                if !has {
+                    let _ = std::process::Command::new("git")
+                        .args(["config", k, v])
+                        .current_dir(&vault)
+                        .output();
+                    println!("已写 repo-local git 兜底身份 {k}={v}（如需真实身份可 git config 覆盖）");
+                }
+            }
         }
         _ => println!("（git 不可用或已存在仓库，跳过 git init）"),
     }
@@ -499,6 +521,7 @@ fn slugify(s: &str) -> String {
 }
 
 fn cmd_new(vault: &Path, type_: &str, title: &str, inbox: bool) {
+    let type_ = if type_ == "thought" { "idea" } else { type_ }; // 历史别名
     if !TYPES.contains(&type_) {
         eprintln!("未知类型 \"{type_}\"，可选: idea | todo | note");
         exit(2);
@@ -577,6 +600,11 @@ fn cmd_check(vault: PathBuf, single: Option<PathBuf>) {
                             es.push(format!("due 无法解析: \"{due}\"（应为 YYYY-MM-DD）"));
                         }
                     }
+                    if let Some(d) = &fm.done {
+                        if NaiveDate::parse_from_str(d, "%Y-%m-%d").is_err() {
+                            es.push(format!("done 无法解析: \"{d}\"（应为 YYYY-MM-DD）"));
+                        }
+                    }
                 }
                 // type 与目录一致性：映射目录 / inbox / archive 皆合法
                 if let Some(expect) = type_dir(&fm.type_) {
@@ -644,6 +672,11 @@ fn cmd_check(vault: PathBuf, single: Option<PathBuf>) {
                     if let Some(due) = &e.fm.due {
                         if NaiveDate::parse_from_str(due, "%Y-%m-%d").is_err() {
                             es.push(format!("due 无法解析: \"{due}\""));
+                        }
+                    }
+                    if let Some(d) = &e.fm.done {
+                        if NaiveDate::parse_from_str(d, "%Y-%m-%d").is_err() {
+                            es.push(format!("done 无法解析: \"{d}\""));
                         }
                     }
                 }
