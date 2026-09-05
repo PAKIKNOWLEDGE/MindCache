@@ -17,14 +17,32 @@ fn main() {
         usage();
     }
     match args[0].as_str() {
-        "init" => cmd_init(extract_vault(&args[1..])),
+        "init" => {
+            // mind init [PATH]：显式 --vault / MIND_VAULT 优先，否则取位置参数，再退默认
+            let rest = &args[1..];
+            let vault = explicit_vault(rest)
+                .or_else(|| {
+                    env::var("MIND_VAULT")
+                        .ok()
+                        .filter(|s| !s.is_empty())
+                        .map(PathBuf::from)
+                })
+                .unwrap_or_else(|| {
+                    positionals(rest)
+                        .first()
+                        .map(|p| PathBuf::from(*p))
+                        .unwrap_or_else(default_vault)
+                });
+            cmd_init(&vault);
+        }
         "new" => {
             let rest = &args[1..];
             let vault = extract_vault(rest);
+            let inbox = rest.iter().any(|a| a == "--inbox");
             // positional args: type, title...
-            let pos: Vec<&String> = rest.iter().filter(|a| !is_flaglike(a)).collect();
+            let pos: Vec<&String> = positionals(rest);
             if pos.is_empty() {
-                eprintln!("mind new <type> [title]  — type: thought|todo|idea|note");
+                eprintln!("mind new <type> [title]  — type: idea|todo|note（--inbox 放入 inbox/）");
                 exit(2);
             }
             let type_ = pos[0].to_string();
@@ -33,7 +51,7 @@ fn main() {
             } else {
                 String::new()
             };
-            cmd_new(&vault, &type_, &title);
+            cmd_new(&vault, &type_, &title, inbox);
         }
         "check" => cmd_check(extract_vault(&args[1..]), positional_path(&args[1..])),
         "build" => cmd_build(extract_vault(&args[1..])),
@@ -42,43 +60,80 @@ fn main() {
             let port = extract_port(&args[1..]);
             cmd_serve(vault, port);
         }
+        "path" => println!("{}", extract_vault(&args[1..]).display()),
         "help" | "--help" | "-h" => usage(),
         _ => usage(),
     }
 }
 
-fn is_flaglike(a: &String) -> bool {
-    a.starts_with('-')
+/// 带值的 flag 名；positionals 跳过它们及其后的值 token
+const FLAG_WITH_VALUE: [&str; 4] = ["--vault", "-v", "--port", "-p"];
+
+/// 提取位置参数，正确跳过 flag 及其值（--vault X / --vault=X / -p 8080）
+fn positionals(args: &[String]) -> Vec<&String> {
+    let mut out = Vec::new();
+    let mut skip_next = false;
+    for a in args {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if FLAG_WITH_VALUE.contains(&a.as_str()) {
+            skip_next = true;
+            continue;
+        }
+        if a.starts_with('-') && a.len() > 1 {
+            continue; // 无值 flag（--inbox 等）或 --flag=value 形式
+        }
+        out.push(a);
+    }
+    out
+}
+
+fn explicit_vault(args: &[String]) -> Option<PathBuf> {
+    for (i, a) in args.iter().enumerate() {
+        if let Some(v) = a.strip_prefix("--vault=") {
+            return Some(PathBuf::from(v));
+        }
+        if a == "--vault" || a == "-v" {
+            if let Some(p) = args.get(i + 1) {
+                return Some(PathBuf::from(p));
+            }
+        }
+    }
+    None
+}
+
+fn default_vault() -> PathBuf {
+    home_dir().join("mind")
 }
 
 fn usage() -> ! {
     println!(
-        "mind v{VERSION} — filesystem-first personal knowledge base
+        "mind v{VERSION} — MindCache: filesystem-first personal knowledge base
 
 USAGE:
   mind init [PATH]              initialize a vault (default ~/mind), git init included
-  mind new <type> [TITLE]       create a new entry (type: thought|todo|idea|note)
-  mind check [PATH]             lint vault entries (or a single file)
+  mind new <type> [TITLE]       create an entry (type: idea|todo|note; --inbox puts it in inbox/)
+  mind check [FILE.md]          lint vault entries (or a single file)
   mind build                    generate static dashboard into <vault>/dist/
   mind serve [--port N]         serve <vault>/dist/ over LAN (default port 8181)
+  mind path                     print the resolved vault location
 
-Vault location: $MIND_VAULT or ~/mind. Override any command with --vault PATH."
+Vault location precedence: --vault PATH > $MIND_VAULT > ~/.config/mind/config.toml > ~/mind."
     );
     exit(0);
 }
 
 fn extract_vault(args: &[String]) -> PathBuf {
-    if let Some(i) = args.iter().position(|a| a == "--vault" || a == "-v") {
-        if let Some(p) = args.get(i + 1) {
-            return PathBuf::from(p);
-        }
-    }
-    if let Ok(p) = env::var("MIND_VAULT") {
-        if !p.is_empty() {
-            return PathBuf::from(p);
-        }
-    }
-    home_dir().join("mind")
+    explicit_vault(args)
+        .or_else(|| {
+            env::var("MIND_VAULT")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .map(PathBuf::from)
+        })
+        .unwrap_or_else(default_vault)
 }
 
 fn extract_port(args: &[String]) -> u16 {
@@ -93,10 +148,7 @@ fn extract_port(args: &[String]) -> u16 {
 }
 
 fn positional_path(args: &[String]) -> Option<PathBuf> {
-    args.iter()
-        .filter(|a| !is_flaglike(a))
-        .next()
-        .map(PathBuf::from)
+    positionals(args).first().map(|p| PathBuf::from(*p))
 }
 
 fn home_dir() -> PathBuf {
@@ -127,13 +179,43 @@ struct Entry {
 }
 
 /// Split a markdown file into (frontmatter, body). Returns None if no well-formed block.
+/// 容忍开头 `--- ` 的尾随空白、\r\n、结束符行前后的空白。
 fn split_fm(text: &str) -> Option<(&str, &str)> {
     let t = text.trim_start_matches('\u{feff}');
     let rest = t.strip_prefix("---")?;
-    let rest = rest.strip_prefix('\n').or_else(|| rest.strip_prefix("\r\n"))?;
-    let end = rest.find("\n---")?;
-    let fm = &rest[..end];
-    let after = &rest[end + 4..];
+    let nl = rest.find('\n')?;
+    if !rest[..nl].trim_end().is_empty() {
+        return None; // "---xxx" 不是 frontmatter 开头
+    }
+    let after_first = &rest[nl + 1..];
+    // 逐行找结束符：trim_end 后恰为 "---" 的行（兼容 \r\n 与尾随空格）
+    let mut end = None;
+    let mut off = 0usize;
+    loop {
+        let line = &after_first[off..];
+        if line.is_empty() {
+            break;
+        }
+        match line.find('\n') {
+            Some(n) => {
+                if line[..n].trim_end() == "---" {
+                    end = Some(off);
+                    break;
+                }
+                off += n + 1;
+            }
+            None => {
+                // 无换行的最后一行
+                if line.trim_end() == "---" {
+                    end = Some(off);
+                }
+                break;
+            }
+        }
+    }
+    let end = end?;
+    let fm = &after_first[..end];
+    let after = &after_first[end + 3..]; // 跳过 "---"
     let body = after
         .strip_prefix('\n')
         .or_else(|| after.strip_prefix("\r\n"))
@@ -171,10 +253,21 @@ fn parse_fm(text: &str) -> Result<Fm, String> {
             "status" => fm.status = Some(v),
             "due" => fm.due = Some(v),
             "tags" => {
-                in_tags = true;
+                // 支持 YAML 块式列表（后续 "- item" 行）与行内 flow 列表 [a, b]
                 if v == "[]" {
                     fm.tags = Vec::new();
                     in_tags = false;
+                } else if v.starts_with('[') {
+                    fm.tags = v[1..]
+                        .strip_suffix(']')
+                        .unwrap_or(&v[1..])
+                        .split(',')
+                        .map(|s| s.trim().trim_matches('"').trim_matches('\'').to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    in_tags = false;
+                } else {
+                    in_tags = true;
                 }
             }
             _ => {} // 未知字段容忍读取，check 不强制
@@ -218,11 +311,19 @@ fn valid_filename(stem: &str) -> bool {
     if b.len() < 14 {
         return false;
     }
-    b[..8].iter().all(u8::is_ascii_digit)
+    if !(b[..8].iter().all(u8::is_ascii_digit)
         && b[8] == b'-'
         && b[9..13].iter().all(u8::is_ascii_digit)
-        && b[13] == b'-'
-        && stem[14..].len() > 0
+        && b[13] == b'-')
+    {
+        return false;
+    }
+    // SPEC: slug 仅限小写字母、数字、连字符（保证 href/URL 安全）
+    let slug = &stem[14..];
+    !slug.is_empty()
+        && slug
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn type_dir(type_: &str) -> Option<&'static str> {
@@ -277,7 +378,7 @@ fn read_entries(vault: &Path, dirs: &[&str]) -> (Vec<Entry>, Vec<(String, String
 
 // ---------------------------------------------------------------- init
 
-fn cmd_init(vault: PathBuf) {
+fn cmd_init(vault: &Path) {
     if vault.exists() {
         println!("vault 已存在: {}", vault.display());
     } else {
@@ -334,12 +435,13 @@ fn slugify(s: &str) -> String {
     out
 }
 
-fn cmd_new(vault: &Path, type_: &str, title: &str) {
+fn cmd_new(vault: &Path, type_: &str, title: &str, inbox: bool) {
     if !TYPES.contains(&type_) {
-        eprintln!("未知类型 \"{type_}\"，可选: thought | todo | idea | note");
+        eprintln!("未知类型 \"{type_}\"，可选: idea | todo | note");
         exit(2);
     }
-    let dir = type_dir(type_).unwrap();
+    // --inbox：Agent 拿不准时落入 inbox/，文件名与 frontmatter 仍由工具负责
+    let dir = if inbox { "inbox" } else { type_dir(type_).unwrap() };
     let dp = vault.join(dir);
     fs::create_dir_all(&dp).unwrap_or_else(|e| die(&format!("创建 {dir}/ 失败: {e}")));
 
@@ -530,7 +632,11 @@ fn esc(s: &str) -> String {
 }
 
 fn render_md(body: &str) -> String {
-    let opts = comrak::ComrakOptions::default();
+    let mut opts = comrak::ComrakOptions::default();
+    // GFM 扩展：表格/删除线/自动链接，否则按字面渲染（~~x~~、管道表、裸 URL）
+    opts.extension.table = true;
+    opts.extension.strikethrough = true;
+    opts.extension.autolink = true;
     comrak::markdown_to_html(body, &opts)
 }
 
@@ -608,6 +714,7 @@ h1.entry{font-size:34px;font-style:italic;font-weight:400;margin:6px 0 18px;line
 "###;
 
 fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line: &str) -> String {
+    let title = esc(title); // <title> 不转义会破坏文档头/注入脚本
     // 只有详情页位于 pages/ 子目录（nav_active 为空），根级链接才需要 ../ 前缀
     let root = if nav_active.is_empty() { "../" } else { "" };
     let nav = [
@@ -652,7 +759,7 @@ fn entry_row(e: &Entry, rel_prefix: &str, show_dir: bool) -> String {
         .join("");
     format!(
         "<div class=\"row\"><div><span class=\"fold\">{date}</span> {fold}<a class=\"t serif\" href=\"{prefix}pages/{stem}.html\">{title}</a> {tags}</div><span class=\"m\">{m}</span></div>",
-        date = fmt_created(&e.fm.created),
+        date = esc(&fmt_created(&e.fm.created)),
         stem = esc(&e.stem),
         title = esc(&e.fm.title),
         prefix = rel_prefix,
@@ -661,11 +768,13 @@ fn entry_row(e: &Entry, rel_prefix: &str, show_dir: bool) -> String {
 }
 
 fn tags_for_meta(e: &Entry) -> String {
-    if e.dir == "todo" {
+    if e.fm.type_ == "todo" {
         match (&e.fm.status, &e.fm.due) {
-            (Some(s), Some(d)) => format!("{} <span class=\"due\">due {d}</span>", esc(s)),
+            (Some(s), Some(d)) => {
+                format!("{} <span class=\"due\">due {}</span>", esc(s), esc(d))
+            }
             (Some(s), None) => esc(s),
-            (None, Some(d)) => format!("open <span class=\"due\">due {d}</span>"),
+            (None, Some(d)) => format!("open <span class=\"due\">due {}</span>", esc(d)),
             (None, None) => "open".into(),
         }
     } else {
@@ -708,15 +817,29 @@ fn cmd_build(vault: PathBuf) {
             .map(|t| format!("<span class=\"tag\">{}</span>", esc(t)))
             .collect::<Vec<_>>()
             .join("");
+        let mut meta = format!(
+            "<b>{}</b> // {} // {}",
+            esc(&e.fm.type_),
+            esc(&e.dir),
+            esc(&fmt_created(&e.fm.created))
+        );
+        if e.fm.type_ == "todo" {
+            meta.push_str(&format!(
+                " // {}",
+                esc(e.fm.status.as_deref().unwrap_or("open"))
+            ));
+            if let Some(d) = &e.fm.due {
+                meta.push_str(&format!(" <span class=\"due\">due {}</span>", esc(d)));
+            }
+        }
         let body = format!(
             "<a class=\"back\" href=\"../{dir}.html\">← BACK</a>\n\
-<div class=\"entry-meta\"><b>{ty}</b> // {dir} // {created}</div>\n\
+<div class=\"entry-meta\">{meta}</div>\n\
 <h1 class=\"entry serif\">{title}</h1>\n\
 <div>{tags}</div>\n\
 <div class=\"body\">{md}</div>",
-            ty = esc(&e.fm.type_),
             dir = esc(&e.dir),
-            created = fmt_created(&e.fm.created),
+            meta = meta,
             title = esc(&e.fm.title),
             md = render_md(&e.body),
         );
@@ -806,7 +929,7 @@ fn cmd_build(vault: PathBuf) {
                         format!(
                             "<span class=\"due{}\">due {}</span>",
                             if overdue { " overdue" } else { "" },
-                            d
+                            esc(d)
                         )
                     })
                     .unwrap_or_default();
@@ -855,8 +978,26 @@ fn cmd_build(vault: PathBuf) {
 
 // ---------------------------------------------------------------- serve
 
-fn content_type(p: &Path) -> &'static str {
-    match p.extension().and_then(|e| e.to_str()).unwrap_or("") {
+/// 最小 percent-decoding：浏览器会把空格等编码成 %XX，不做解码会导致构建出的文件 404
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn content_type(p: &Path) -> &'static str {    match p.extension().and_then(|e| e.to_str()).unwrap_or("") {
         "html" => "text/html; charset=utf-8",
         "css" => "text/css; charset=utf-8",
         "js" => "text/javascript; charset=utf-8",
@@ -889,7 +1030,7 @@ fn cmd_serve(vault: PathBuf, port: u16) {
             let n = stream.read(&mut buf).unwrap_or(0);
             let req = String::from_utf8_lossy(&buf[..n]);
             let Some(path) = req.split_whitespace().nth(1) else { return };
-            let path = path.split('?').next().unwrap_or("/");
+            let path = percent_decode(path.split('?').next().unwrap_or("/"));
             let rel = path.trim_start_matches('/');
             let mut target = dist.join(if rel.is_empty() { "index.html" } else { rel });
             if target.is_dir() {
