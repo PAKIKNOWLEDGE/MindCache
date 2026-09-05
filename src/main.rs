@@ -736,22 +736,21 @@ fn render_md(body: &str) -> String {
     comrak::markdown_to_html(body, &opts)
 }
 
-const CSS: &str = r###":root{
-  --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620;
-  --muted:#8a7f6e; --line:#d9cfba; --accent:#b3502a; --ok:#5b6e4e; --shadow:rgba(80,60,30,.08);
-}
-@media (prefers-color-scheme: dark){ :root{
-  --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0;
-  --muted:#7a705f; --line:#352d22; --accent:#d96a3b; --ok:#8aa077; --shadow:rgba(0,0,0,.4);
-}}
-*{box-sizing:border-box}
+// 主题三态：默认跟随系统；data-theme 覆盖。concat! 只接受字面量，
+// light/dark 两组 token 各出现两份（:root 基准 + 显式覆盖），改色值时四处同步。
+const CSS: &str = concat!(
+    r###":root{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); }
+:root[data-theme="light"]{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); ;color-scheme:light }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark } }
+:root[data-theme="dark"]{ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark }"###,
+    r###"*{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);
   font-family:ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace;
   font-size:14px;line-height:1.65;}
 a{color:inherit;text-decoration:none}
 a:hover{color:var(--accent)}
-.serif{font-family:Georgia,"Times New Roman","Songti SC",STSong,SimSun,serif}
+.serif{font-family:Georgia,"Times New Roman","Noto Serif CJK SC","Noto Serif SC","Source Han Serif SC","Songti SC",STSong,SimSun,serif}
 .wrap{max-width:1180px;margin:0 auto;padding:18px 16px 40px}
 .topbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
   border:1px solid var(--line);padding:8px 14px;font-size:11px;
@@ -761,29 +760,35 @@ nav{display:flex;gap:2px;margin-top:10px;flex-wrap:wrap}
 nav a{border:1px solid var(--line);border-bottom:none;padding:6px 14px;font-size:11px;
   letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:var(--panel)}
 nav a.on{color:var(--accent)}
+.tbtn{background:none;border:1px solid var(--line);color:var(--muted);font:inherit;font-size:11px;letter-spacing:.12em;padding:2px 8px;cursor:pointer;text-transform:uppercase}
+.tbtn:hover{color:var(--accent);border-color:var(--accent)}
 nav a:hover{color:var(--accent)}
 .label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
   border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px}
 .label b{color:var(--accent);font-weight:400}
 .panel{border:1px solid var(--line);background:var(--panel);padding:16px 18px;box-shadow:0 1px 0 var(--shadow)}
 .grid{display:grid;grid-template-columns:250px 1fr 300px;gap:14px;margin-top:14px;align-items:start}
-@media(max-width:920px){.grid{grid-template-columns:1fr}}
+@media(max-width:920px){.grid{grid-template-columns:1fr}
+.grid>*{order:0}
+.grid>*:nth-child(1){order:3}
+.grid>*:nth-child(3){order:2}}
 .hero{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-top:14px}
-.greet{font-size:30px;font-style:italic}
 .clock{font-size:34px;letter-spacing:.08em;color:var(--ink)}
 .clock small{font-size:12px;color:var(--muted);letter-spacing:.14em;display:block;text-align:right}
 .stat{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
 .stat a{color:var(--ink)} .stat a:hover{color:var(--accent)}
 .stat .n{color:var(--accent)}
 .dot{display:inline-block;width:7px;height:7px;background:var(--accent);margin-right:8px;vertical-align:1px}
-.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px dotted var(--line)}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:none}
-.row .t{font-size:16px}
+.row>div{min-width:0}
+.row .t{font-size:16px;overflow-wrap:anywhere}
 .row .m{font-size:11px;color:var(--muted);white-space:nowrap;letter-spacing:.06em}
 .row .fold{color:var(--accent);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
 .tag{font-size:11px;color:var(--muted);margin-right:6px}
 .tag::before{content:"#"}
-.due{font-size:11px;color:var(--muted)}
+.due{font-size:11px;color:var(--muted);white-space:nowrap}
+.row>*:last-child{flex-shrink:0}
 .overdue{color:var(--accent)}
 .done .t{text-decoration:line-through;color:var(--muted)}
 .done .fold,.done .date,.done .tag,.done .m{color:var(--muted)}
@@ -796,21 +801,26 @@ nav a:hover{color:var(--accent)}
 /* entry page */
 .entry-meta{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
 .entry-meta b{color:var(--accent);font-weight:400}
-h1.entry{font-size:34px;font-style:italic;font-weight:400;margin:6px 0 18px;line-height:1.25}
+h1.entry{font-size:34px;font-weight:400;margin:6px 0 18px;line-height:1.3}
 .back{display:inline-block;margin-bottom:10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .back:hover{color:var(--accent)}
 .body{max-width:70ch;font-size:15px}
+.body a{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.body a:hover{color:var(--accent)}
 .body p{margin:.7em 0}
-.body h1,.body h2,.body h3{font-family:Georgia,"Songti SC",serif;font-weight:400;font-style:italic;line-height:1.3}
+.body h1,.body h2,.body h3{font-family:Georgia,"Noto Serif CJK SC","Noto Serif SC",serif;font-weight:400;line-height:1.4}
 .body h1{font-size:24px} .body h2{font-size:20px} .body h3{font-size:17px}
 .body code{background:var(--card);border:1px solid var(--line);padding:0 5px;font-size:.9em}
 .body pre{background:var(--card);border:1px solid var(--line);padding:12px 14px;overflow-x:auto;font-size:13px}
 .body pre code{border:none;padding:0;background:none}
 .body blockquote{margin:.8em 0;padding:.2em 1em;border-left:3px solid var(--accent);color:var(--muted);font-style:italic}
 .body ul,.body ol{padding-left:1.4em}
+.body table{border-collapse:collapse;margin:.8em 0}
+.body th,.body td{border:1px solid var(--line);padding:4px 12px;font-size:13px;text-align:left}
+.body th{background:var(--card);font-weight:400}
 .body hr{border:none;border-top:1px solid var(--line);margin:1.4em 0}
 .body img{max-width:100%}
-"###;
+"###);
 
 fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line: &str) -> String {
     let title = esc(title); // <title> 不转义会破坏文档头/注入脚本
@@ -831,15 +841,28 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
     .collect::<Vec<_>>()
     .join("");
     format!(
-        "<!DOCTYPE html>\n<html lang=\"zh\">\n<head>\n<meta charset=\"utf-8\">\n\
+        "<!DOCTYPE html>\n<html lang=\"zh\">\n<head>\n<meta charset=\"utf-8\">\n<script>(function(){{try{{var t=localStorage.getItem(\"mind-theme\");if(t)document.documentElement.setAttribute(\"data-theme\",t)}}catch(e){{}}}})();</script>\n\
 <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n\
-<title>{title} · MIND</title>\n<link rel=\"stylesheet\" href=\"{root}style.css\">\n</head>\n<body>\n\
+<title>{title} · MIND</title>\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"theme-color\" content=\"#f2ecdf\" media=\"(prefers-color-scheme: light)\">\n<meta name=\"theme-color\" content=\"#15120e\" media=\"(prefers-color-scheme: dark)\">\n<link rel=\"icon\" href=\"data:,\">\n<link rel=\"stylesheet\" href=\"{root}style.css\">\n</head>\n<body>\n\
 <div class=\"wrap\">\n\
-<div class=\"topbar\"><span><b>MIND</b> // PERSONAL KNOWLEDGE BASE</span><span>{count_line}</span></div>\n\
+<div class=\"topbar\"><span><b>MIND</b> // PERSONAL KNOWLEDGE BASE</span><span>{count_line} &nbsp;<button class=\"tbtn\" id=\"themebtn\">THEME</button></span></div>\n\
 <nav>{nav}</nav>\n\
 {body}\n\
 <div class=\"statusbar\"><span>MIND v{VERSION}</span><span>{built}</span></div>\n\
-</div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n</script>\n</body>\n</html>\n",
+</div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n
+var b=document.getElementById('themebtn');
+if(b){{
+  var modes=['auto','dark','light'];
+  function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
+  function mpaint(){{b.textContent='THEME: '+mcur().toUpperCase()}}
+  b.addEventListener('click',function(){{
+    var nx=modes[(modes.indexOf(mcur())+1)%3];
+    if(nx==='auto'){{try{{localStorage.removeItem('mind-theme')}}catch(e){{}}document.documentElement.removeAttribute('data-theme')}}
+    else{{try{{localStorage.setItem('mind-theme',nx)}}catch(e){{}}document.documentElement.setAttribute('data-theme',nx)}}
+    mpaint();
+  }});
+  mpaint();
+}}\n</script>\n</body>\n</html>\n",
     )
 }
 
