@@ -753,6 +753,9 @@ nav a:hover{color:var(--accent)}
 .due{font-size:11px;color:var(--muted)}
 .overdue{color:var(--accent)}
 .done .t{text-decoration:line-through;color:var(--muted)}
+.done .fold,.done .date,.done .tag,.done .m{color:var(--muted)}
+.vaultwrap{display:flex;flex-direction:column;gap:14px}
+.date{font-size:11px;color:var(--muted);margin-right:6px}
 .empty{color:var(--muted);font-style:italic;padding:10px 0}
 .statusbar{margin-top:16px;border:1px solid var(--line);padding:7px 14px;font-size:11px;
   letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
@@ -803,8 +806,16 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
 <nav>{nav}</nav>\n\
 {body}\n\
 <div class=\"statusbar\"><span>MIND v{VERSION}</span><span>{built}</span></div>\n\
-</div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,1000);}}\nvar g=document.getElementById('greet');if(g){{var h=new Date().getHours();g.textContent=h<5?'Good night.':h<12?'Good morning.':h<18?'Good afternoon.':'Good evening.';}}\n}})();\n</script>\n</body>\n</html>\n",
+</div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n</script>\n</body>\n</html>\n",
     )
+}
+
+fn is_done_entry(e: &Entry) -> bool {
+    e.fm.type_ == "todo" && e.fm.status.as_deref() == Some("done")
+}
+
+fn is_open_todo(e: &&Entry) -> bool {
+    e.fm.type_ == "todo" && e.fm.status.as_deref().unwrap_or("open") != "done"
 }
 
 fn entry_row(e: &Entry, rel_prefix: &str, show_dir: bool) -> String {
@@ -820,25 +831,45 @@ fn entry_row(e: &Entry, rel_prefix: &str, show_dir: bool) -> String {
         .map(|t| format!("<span class=\"tag\">{}</span>", esc(t)))
         .collect::<Vec<_>>()
         .join("");
+    let row_class = if is_done_entry(e) { "row done" } else { "row" };
+    let m = tags_for_meta(e);
+    let m_html = if m.is_empty() {
+        String::new()
+    } else {
+        format!("<span class=\"m\">{m}</span>")
+    };
     format!(
-        "<div class=\"row\"><div><span class=\"fold\">{date}</span> {fold}<a class=\"t serif\" href=\"{prefix}pages/{stem}.html\">{title}</a> {tags}</div><span class=\"m\">{m}</span></div>",
+        "<div class=\"{row_class}\"><div><span class=\"date\">{date}</span> {fold}<a class=\"t serif\" href=\"{prefix}pages/{stem}.html\">{title}</a> {tags}</div>{m_html}</div>",
         date = esc(&fmt_created(&e.fm.created)),
         stem = esc(&e.stem),
         title = esc(&e.fm.title),
         prefix = rel_prefix,
-        m = tags_for_meta(e),
     )
+}
+
+/// 共享的 due 渲染：overdue 高亮在所有视图一致
+fn due_span(e: &Entry) -> String {
+    e.fm.due
+        .as_deref()
+        .map(|d| {
+            let overdue = d < &Local::now().format("%Y-%m-%d").to_string();
+            format!(
+                "<span class=\"due{}\">due {}</span>",
+                if overdue { " overdue" } else { "" },
+                esc(d)
+            )
+        })
+        .unwrap_or_default()
 }
 
 fn tags_for_meta(e: &Entry) -> String {
     if e.fm.type_ == "todo" {
-        match (&e.fm.status, &e.fm.due) {
-            (Some(s), Some(d)) => {
-                format!("{} <span class=\"due\">due {}</span>", esc(s), esc(d))
-            }
-            (Some(s), None) => esc(s),
-            (None, Some(d)) => format!("open <span class=\"due\">due {}</span>", esc(d)),
-            (None, None) => "open".into(),
+        let s = esc(e.fm.status.as_deref().unwrap_or("open"));
+        let due = due_span(e);
+        if due.is_empty() {
+            s
+        } else {
+            format!("{s} {due}")
         }
     } else {
         String::new()
@@ -895,13 +926,18 @@ fn cmd_build(vault: PathBuf) {
                 meta.push_str(&format!(" <span class=\"due\">due {}</span>", esc(d)));
             }
         }
+        // archive 没有独立分类页，返回链接指向 dashboard
+        let back = if e.dir == "archive" {
+            "../index.html".to_string()
+        } else {
+            format!("../{}.html", esc(&e.dir))
+        };
         let body = format!(
-            "<a class=\"back\" href=\"../{dir}.html\">← BACK</a>\n\
+            "<a class=\"back\" href=\"{back}\">← BACK</a>\n\
 <div class=\"entry-meta\">{meta}</div>\n\
 <h1 class=\"entry serif\">{title}</h1>\n\
 <div>{tags}</div>\n\
 <div class=\"body\">{md}</div>",
-            dir = esc(&e.dir),
             meta = meta,
             title = esc(&e.fm.title),
             md = render_md(&e.body),
@@ -911,41 +947,44 @@ fn cmd_build(vault: PathBuf) {
             .unwrap_or_else(|er| die(&format!("写入详情页失败: {er}")));
     }
 
-    // ---- 分类页
+    // ---- 分类页（todo 页按 type 汇总全库，其余按目录）
     for dir in ["inbox", "todo", "ideas", "notes"] {
-        let mut list: Vec<&Entry> = entries.iter().filter(|e| e.dir == dir).collect();
-        if dir == "todo" {
-            list.sort_by_key(|e| {
-                let open = e.fm.status.as_deref().unwrap_or("open") != "done";
-                (std::cmp::Reverse(open), e.fm.due.clone().unwrap_or_else(|| "9999".into()))
-            });
-        }
-        let rows = if list.is_empty() {
-            "<div class=\"empty\">nothing here yet.</div>".to_string()
+        let (rows, sub) = if dir == "todo" {
+            let mut open: Vec<&Entry> =
+                entries.iter().filter(|e| is_open_todo(e)).collect();
+            open.sort_by_key(|e| e.fm.due.clone().unwrap_or_else(|| "9999".into()));
+            let mut done: Vec<&Entry> = entries.iter().filter(|e| is_done_entry(e)).collect();
+            done.sort_by_key(|e| std::cmp::Reverse(parse_created(&e.fm.created).unwrap_or(0)));
+            let n_done_total = done.len();
+            let mut rows: Vec<String> = open
+                .iter()
+                .map(|e| entry_row(e, "", false))
+                .collect();
+            if rows.is_empty() && done.is_empty() {
+                rows.push("<div class=\"empty\">no todos.</div>".into());
+            }
+            for e in done.iter().take(10) {
+                rows.push(entry_row(e, "", false));
+            }
+            if n_done_total > 10 {
+                rows.push(format!(
+                    "<div class=\"row\"><span class=\"m\">… {} more done entries</span></div>",
+                    n_done_total - 10
+                ));
+            }
+            let sub = format!(" // <b>{}</b> OPEN", open.len());
+            (rows.join("\n"), sub)
         } else {
-            list.iter()
-                .map(|e| {
-                    let mut r = entry_row(e, "", false);
-                    if e.fm.status.as_deref() == Some("done") {
-                        r = r.replace("class=\"row\"", "class=\"row done\"");
-                    }
-                    r
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
-        let n_open = list
-            .iter()
-            .filter(|e| e.fm.status.as_deref().unwrap_or("open") != "done")
-            .count();
-        let sub = if dir == "todo" {
-            format!(" // <b>{n_open}</b> OPEN")
-        } else {
-            String::new()
+            let list: Vec<&Entry> = entries.iter().filter(|e| e.dir == dir).collect();
+            let rows = if list.is_empty() {
+                "<div class=\"empty\">nothing here yet.</div>".to_string()
+            } else {
+                list.iter().map(|e| entry_row(e, "", false)).collect::<Vec<_>>().join("\n")
+            };
+            (rows, String::new())
         };
         let body = format!(
-            "<div class=\"panel\" style=\"margin-top:14px\">\n<div class=\"label\"><b>{:02}</b> // {}{sub}</div>\n{rows}\n</div>",
-            3 + DIRS.iter().position(|d| *d == dir).unwrap_or(0),
+            "<div class=\"panel\" style=\"margin-top:14px\">\n<div class=\"label\"><b>01</b> // {}{sub}</div>\n{rows}\n</div>",
             dir.to_uppercase(),
         );
         let html = page_html(dir, dir, &body, &built, &count_line);
@@ -953,22 +992,21 @@ fn cmd_build(vault: PathBuf) {
     }
 
     // ---- index dashboard
-    let open_todos: Vec<&Entry> = entries
-        .iter()
-        .filter(|e| e.dir == "todo" && e.fm.status.as_deref().unwrap_or("open") != "done")
-        .collect();
-    let n_inbox = entries.iter().filter(|e| e.dir == "inbox").count();
+    let open_todos: Vec<&Entry> = entries.iter().filter(is_open_todo).collect();
     let n_todo_open = open_todos.len();
+    let n_inbox = entries.iter().filter(|e| e.dir == "inbox").count();
     let n_ideas = entries.iter().filter(|e| e.dir == "ideas").count();
     let n_notes = entries.iter().filter(|e| e.dir == "notes").count();
-    let n_archive = {
-        let (arch, _) = read_entries(&vault, &["archive"]);
-        arch.len()
-    };
+    let n_archive = entries.iter().filter(|e| e.dir == "archive").count();
 
-    let recent: Vec<&Entry> = entries.iter().take(20).collect();
+    // RECENT = 捕获流：排除归档回流与已完成 todo
+    let recent: Vec<&Entry> = entries
+        .iter()
+        .filter(|e| e.dir != "archive" && !is_done_entry(e))
+        .take(20)
+        .collect();
     let recent_rows = if recent.is_empty() {
-        "<div class=\"empty\">vault is empty — run: mind new thought \"hello\"</div>".to_string()
+        "<div class=\"empty\">vault is empty — run: mind new idea \"hello\"</div>".to_string()
     } else {
         recent
             .iter()
@@ -976,44 +1014,40 @@ fn cmd_build(vault: PathBuf) {
             .collect::<Vec<_>>()
             .join("\n")
     };
-    let todo_rows = if open_todos.is_empty() {
+    // OPEN TODOS 按 due 升序（overdue 优先），无 due 靠后；超出 12 条折叠
+    let mut sorted_todos: Vec<&&Entry> = open_todos.iter().collect();
+    sorted_todos.sort_by_key(|e| e.fm.due.clone().unwrap_or_else(|| "9999".into()));
+    let n_more = sorted_todos.len().saturating_sub(12);
+    let mut todo_parts: Vec<String> = sorted_todos
+        .iter()
+        .take(12)
+        .map(|e| {
+            format!(
+                "<div class=\"row\"><div><span class=\"dot\"></span><a class=\"t serif\" href=\"pages/{}.html\">{}</a></div>{}</div>",
+                esc(&e.stem),
+                esc(&e.fm.title),
+                due_span(e)
+            )
+        })
+        .collect();
+    if n_more > 0 {
+        todo_parts.push(format!(
+            "<div class=\"row\"><a href=\"todo.html\"><span class=\"m\">… {} more open todos</span></a></div>",
+            n_more
+        ));
+    }
+    let todo_rows = if todo_parts.is_empty() {
         "<div class=\"empty\">no open todos.</div>".to_string()
     } else {
-        open_todos
-            .iter()
-            .take(12)
-            .map(|e| {
-                let due = e
-                    .fm
-                    .due
-                    .as_deref()
-                    .map(|d| {
-                        let overdue = d < &Local::now().format("%Y-%m-%d").to_string();
-                        format!(
-                            "<span class=\"due{}\">due {}</span>",
-                            if overdue { " overdue" } else { "" },
-                            esc(d)
-                        )
-                    })
-                    .unwrap_or_default();
-                format!(
-                    "<div class=\"row\"><div><span class=\"dot\"></span><a class=\"t serif\" href=\"pages/{}.html\">{}</a></div>{}</div>",
-                    esc(&e.stem),
-                    esc(&e.fm.title),
-                    due
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+        todo_parts.join("\n")
     };
     let today = Local::now().format("%Y-%m-%d").to_string();
     let index_body = format!(
-        "<div class=\"panel hero\"><div><div class=\"label\"><b>02</b> // SESSION // {today}</div>\n\
-<div class=\"greet serif\" id=\"greet\">Good day.</div></div>\n\
+        "<div class=\"panel hero\"><div><div class=\"label\"><b>01</b> // SESSION // {today}</div></div>\n\
 <div class=\"clock\"><span id=\"clock\">--:--</span><small>LOCAL TIME</small></div></div>\n\
 <div class=\"grid\">\n\
-<div style=\"display:flex;flex-direction:column;gap:14px\">\n\
-  <div class=\"panel\"><div class=\"label\"><b>01</b> // VAULT</div>\n\
+<div class=\"vaultwrap\">\n\
+  <div class=\"panel\"><div class=\"label\"><b>02</b> // VAULT</div>\n\
     <div class=\"stat\"><span>INBOX</span><span class=\"n\"><a href=\"inbox.html\">{n_inbox}</a></span></div>\n\
     <div class=\"stat\"><span>TODO · OPEN</span><span class=\"n\"><a href=\"todo.html\">{n_todo_open}</a></span></div>\n\
     <div class=\"stat\"><span>IDEAS</span><span class=\"n\"><a href=\"ideas.html\">{n_ideas}</a></span></div>\n\
@@ -1022,7 +1056,7 @@ fn cmd_build(vault: PathBuf) {
   </div>\n\
 </div>\n\
 <div class=\"panel\"><div class=\"label\"><b>03</b> // RECENT CAPTURES</div>\n{recent_rows}\n</div>\n\
-<div class=\"panel\"><div class=\"label\"><b>05</b> // OPEN TODOS</div>\n{todo_rows}\n</div>\n\
+<div class=\"panel\"><div class=\"label\"><b>04</b> // OPEN TODOS</div>\n{todo_rows}\n</div>\n\
 </div>",
     );
     let html = page_html("dashboard", "index", &index_body, &built, &count_line);
