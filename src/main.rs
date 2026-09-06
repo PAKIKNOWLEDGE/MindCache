@@ -743,7 +743,8 @@ const CSS: &str = concat!(
 :root[data-theme="light"]{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); ;color-scheme:light }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]):not([data-theme="endfield"]){ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark } }
 :root[data-theme="dark"]{ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark }
-:root[data-theme="endfield"]{ --paper:#e8e8e2; --panel:#f2f2ec; --card:#dcddd6; --ink:#101110; --muted:#4a4c48; --line:#d8d9d5; --accent:#6b5d00; --shadow:rgba(16,17,16,.10); ;color-scheme:light }"###,
+:root[data-theme="endfield"]{ --paper:#e8e8e2; --panel:#f2f2ec; --card:#dcddd6; --ink:#101110; --muted:#4a4c48; --line:#d8d9d5; --accent:#6b5d00; --shadow:rgba(16,17,16,.10); ;color-scheme:light }
+@media (prefers-color-scheme: dark){ :root[data-theme="endfield"]{ --paper:#101110; --panel:#181a18; --card:#1e201d; --ink:#f5f5f0; --muted:#898d89; --line:#343633; --accent:#fff500; --shadow:rgba(0,0,0,.5); ;color-scheme:dark } }"###,
     r###"*{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);
