@@ -822,6 +822,47 @@ h1.entry{font-size:34px;font-weight:400;margin:6px 0 18px;line-height:1.3}
 .body th{background:var(--card);font-weight:400}
 .body hr{border:none;border-top:1px solid var(--line);margin:1.4em 0}
 .body img{max-width:100%}
+"###,
+    // ---- endfield 主题专属层：全部选择器挂在 [data-theme="endfield"] 下，
+    // 其他主题（auto/light/dark）不生成任何效果，保证原有设计语言零污染
+    r###".dbtn{display:none}
+[data-theme="endfield"] .dbtn{display:inline-block}
+[data-theme="endfield"] .grid{grid-template-columns:repeat(var(--cols,3),minmax(0,1fr))}
+@media(max-width:920px){[data-theme="endfield"] .grid{grid-template-columns:1fr}}
+@media (prefers-color-scheme: dark){
+[data-theme="endfield"] body{font-family:MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace;
+  background-image:repeating-linear-gradient(0deg,rgba(245,245,240,.03) 0,rgba(245,245,240,.03) 1px,transparent 1px,transparent 28px),
+    repeating-linear-gradient(90deg,rgba(245,245,240,.03) 0,rgba(245,245,240,.03) 1px,transparent 1px,transparent 28px)}}
+@media (prefers-color-scheme: light){
+[data-theme="endfield"] body{font-family:MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace}}
+[data-theme="endfield"] .serif{font-family:inherit}
+[data-theme="endfield"] h1.entry,[data-theme="endfield"] .clock{
+  font-family:"Arial Black",MiSans,Arial,sans-serif;font-weight:900;letter-spacing:.02em}
+[data-theme="endfield"] ::selection{background:var(--accent);color:var(--paper)}
+[data-theme="endfield"] :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[data-theme="endfield"] *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+[data-theme="endfield"] ::-webkit-scrollbar{width:6px;height:6px}
+[data-theme="endfield"] ::-webkit-scrollbar-thumb{background:var(--line)}
+[data-theme="endfield"] ::-webkit-scrollbar-track{background:transparent}
+[data-theme="endfield"] nav a:hover,[data-theme="endfield"] .tbtn:hover,[data-theme="endfield"] .back:hover{
+  background:var(--accent);border-color:var(--accent);color:var(--ink)}
+[data-theme="endfield"] .label::before{content:"[";color:var(--accent);margin-right:5px}
+[data-theme="endfield"] .label::after{content:"]";color:var(--accent);margin-left:5px}
+[data-theme="endfield"] .panel{position:relative;overflow:hidden}
+[data-theme="endfield"] .panel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:repeating-linear-gradient(to bottom,var(--line) 0,var(--line) 1px,transparent 1px,transparent 10px);
+  opacity:.75;pointer-events:none}
+[data-theme="endfield"] .panel::after{content:attr(data-word);position:absolute;right:12px;bottom:-.36em;
+  font-family:"Arial Black",Arial,sans-serif;font-weight:900;font-size:46px;line-height:1;
+  letter-spacing:.04em;color:var(--ink);opacity:.055;pointer-events:none;white-space:nowrap}
+[data-theme="endfield"] .statusbar{border-bottom:3px solid var(--accent)}
+[data-theme="endfield"] .elayout{position:fixed;inset:0;z-index:2147483000;background:#0a0b0a;pointer-events:none}
+[data-theme="endfield"] .elayout .erail{position:absolute;left:0;top:0;width:10px;height:0;background:#fff500}
+[data-theme="endfield"] .elayout .eread{position:absolute;left:22px;top:0;transform:translateY(-50%);
+  font:11px ui-monospace,Consolas,monospace;letter-spacing:.14em;color:#f5f5f0;white-space:nowrap}
+[data-theme="endfield"] .elayout .ebrand{position:absolute;right:6vw;top:50%;transform:translateY(-50%);
+  font-family:"Arial Black",Arial,sans-serif;font-weight:900;font-size:clamp(26px,5.2vh,64px);
+  line-height:.95;letter-spacing:.02em;color:#f5f5f0;text-align:left}
 "###);
 
 fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line: &str) -> String {
@@ -847,24 +888,64 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
 <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n\
 <title>{title} · MIND</title>\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"theme-color\" content=\"#f2ecdf\" media=\"(prefers-color-scheme: light)\">\n<meta name=\"theme-color\" content=\"#15120e\" media=\"(prefers-color-scheme: dark)\">\n<link rel=\"icon\" href=\"data:,\">\n<link rel=\"stylesheet\" href=\"{root}style.css\">\n</head>\n<body>\n\
 <div class=\"wrap\">\n\
-<div class=\"topbar\"><span><b>MIND</b> // PERSONAL KNOWLEDGE BASE</span><span>{count_line} &nbsp;<button class=\"tbtn\" id=\"themebtn\">THEME</button></span></div>\n\
+<div class=\"topbar\"><span><b>MIND</b> // PERSONAL KNOWLEDGE BASE</span><span>{count_line} &nbsp;<button class=\"tbtn dbtn\" id=\"densitybtn\">DENSITY</button> <button class=\"tbtn\" id=\"themebtn\">THEME</button></span></div>\n\
 <nav>{nav}</nav>\n\
 {body}\n\
 <div class=\"statusbar\"><span>MIND v{VERSION}</span><span>{built}</span></div>\n\
 </div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n
+function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
+var rm=false;try{{rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches}}catch(e){{}}
+function playLoader(short){{
+  if(document.getElementById('elayout'))return;
+  var full=short?850:1500,tp=short?350:900,te=300,tf=full-tp-te;
+  var el=document.createElement('div');el.id='elayout';el.className='elayout';el.setAttribute('aria-hidden','true');
+  el.innerHTML='<div class=\"erail\"></div><div class=\"eread\">000%<br>LOADING</div><div class=\"ebrand\">END<br>FIELD</div>';
+  document.body.appendChild(el);
+  var rail=el.querySelector('.erail'),read=el.querySelector('.eread'),t0=Date.now(),done=false;
+  function finish(){{if(done)return;done=true;clearInterval(iv);if(el.parentNode)el.parentNode.removeChild(el)}}
+  function frame(){{
+    if(done)return;
+    var t=Date.now()-t0;
+    if(t<=tp){{
+      var k=1-Math.pow(1-t/tp,3),pct=Math.min(100,Math.round(k*100));
+      rail.style.height=pct+'%';read.style.top=Math.min(94,pct)+'%';
+      read.innerHTML=('00'+pct).slice(-3)+'%<br>LOADING';
+    }}else if(t<=tp+te){{
+      rail.style.height='100%';rail.style.width=(10+90*(t-tp)/te)+'vw';read.style.display='none';
+    }}else if(t<=full){{
+      el.style.opacity=String(Math.max(0,1-(t-tp-te)/tf));
+    }}else{{finish()}}
+  }}
+  var iv=setInterval(frame,50);
+  if(window.requestAnimationFrame){{(function loop(){{if(done)return;frame();requestAnimationFrame(loop)}})()}}
+  setTimeout(finish,full+800);
+}}
 var b=document.getElementById('themebtn');
 if(b){{
   var modes=['auto','dark','light','endfield'];
-  function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
-  function mpaint(){{b.textContent='THEME: '+mcur().toUpperCase()}}
+  function mpaint(){{var m=mcur();b.textContent=(m==='endfield'?'● ':'')+'THEME: '+m.toUpperCase()}}
   b.addEventListener('click',function(){{
     var nx=modes[(modes.indexOf(mcur())+1)%modes.length];
     if(nx==='auto'){{try{{localStorage.removeItem('mind-theme')}}catch(e){{}}document.documentElement.removeAttribute('data-theme')}}
     else{{try{{localStorage.setItem('mind-theme',nx)}}catch(e){{}}document.documentElement.setAttribute('data-theme',nx)}}
     mpaint();
+    if(nx==='endfield'&&!rm)playLoader(true);
   }});
   mpaint();
-}}\n</script>\n</body>\n</html>\n",
+}}
+var d=document.getElementById('densitybtn');
+if(d){{
+  function dcur(){{var v=parseInt((function(){{try{{return localStorage.getItem('mind-density')||'3'}}catch(e){{return '3'}}}})(),10);return v===2||v===3||v===4?v:3}}
+  function dpaint(){{var n=dcur();d.textContent='DENSITY: '+n;document.documentElement.style.setProperty('--cols',n)}}
+  d.addEventListener('click',function(){{
+    var nx=dcur()>=4?2:dcur()+1;
+    try{{localStorage.setItem('mind-density',''+nx)}}catch(e){{}}
+    dpaint();
+  }});
+  dpaint();
+}}
+if(mcur()==='endfield'&&!rm)playLoader(false);
+</script>\n</body>\n</html>\n",
     )
 }
 
@@ -1042,8 +1123,8 @@ fn cmd_build(vault: PathBuf) {
             (rows, String::new())
         };
         let body = format!(
-            "<div class=\"panel\" style=\"margin-top:14px\">\n<div class=\"label\"><b>01</b> // {}{sub}</div>\n{rows}\n</div>",
-            dir.to_uppercase(),
+            "<div class=\"panel\" style=\"margin-top:14px\" data-word=\"{up}\">\n<div class=\"label\"><b>01</b> // {up}{sub}</div>\n{rows}\n</div>",
+            up = dir.to_uppercase(),
         );
         let html = page_html(dir, dir, &body, &built, &count_line);
         fs::write(dist.join(format!("{dir}.html")), html).unwrap();
@@ -1101,11 +1182,11 @@ fn cmd_build(vault: PathBuf) {
     };
     let today = Local::now().format("%Y-%m-%d").to_string();
     let index_body = format!(
-        "<div class=\"panel hero\"><div><div class=\"label\"><b>01</b> // SESSION // {today}</div></div>\n\
+        "<div class=\"panel hero\" data-word=\"SESSION\"><div><div class=\"label\"><b>01</b> // SESSION // {today}</div></div>\n\
 <div class=\"clock\"><span id=\"clock\">--:--</span><small>LOCAL TIME</small></div></div>\n\
 <div class=\"grid\">\n\
 <div class=\"vaultwrap\">\n\
-  <div class=\"panel\"><div class=\"label\"><b>02</b> // VAULT</div>\n\
+  <div class=\"panel\" data-word=\"VAULT\"><div class=\"label\"><b>02</b> // VAULT</div>\n\
     <div class=\"stat\"><span>INBOX</span><span class=\"n\"><a href=\"inbox.html\">{n_inbox}</a></span></div>\n\
     <div class=\"stat\"><span>TODO · OPEN</span><span class=\"n\"><a href=\"todo.html\">{n_todo_open}</a></span></div>\n\
     <div class=\"stat\"><span>IDEAS</span><span class=\"n\"><a href=\"ideas.html\">{n_ideas}</a></span></div>\n\
@@ -1113,8 +1194,8 @@ fn cmd_build(vault: PathBuf) {
     <div class=\"stat\"><span>ARCHIVE</span><span class=\"n\">{n_archive}</span></div>\n\
   </div>\n\
 </div>\n\
-<div class=\"panel\"><div class=\"label\"><b>03</b> // RECENT CAPTURES</div>\n{recent_rows}\n</div>\n\
-<div class=\"panel\"><div class=\"label\"><b>04</b> // OPEN TODOS</div>\n{todo_rows}\n</div>\n\
+<div class=\"panel\" data-word=\"RECENT\"><div class=\"label\"><b>03</b> // RECENT CAPTURES</div>\n{recent_rows}\n</div>\n\
+<div class=\"panel\" data-word=\"TODOS\"><div class=\"label\"><b>04</b> // OPEN TODOS</div>\n{todo_rows}\n</div>\n\
 </div>",
     );
     let html = page_html("dashboard", "index", &index_body, &built, &count_line);
