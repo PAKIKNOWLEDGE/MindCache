@@ -34,6 +34,12 @@ nix-env -f . -iA mindcache      # 安装进用户 profile（PATH）
 
 构建依赖 `Cargo.lock` 在仓库中（buildRustPackage 哈希校验需要）。
 
+## 致谢与参考
+
+- **[dsh-theme-endfield](https://github.com/ymh0000123/dsh-theme-endfield)**（© 2026 ymh0000123，MIT）——endfield 主题的设计语言来源：奶油纸底 / 墨黑文字 / 信号色强调 / 全直角工业编辑风、启动加载动画等手法均参考其实现。本仓库只借鉴设计语言与交互概念，未复制其代码；参考副本仅存于本地 `design-ref/`（已 gitignore，不进仓库）。
+- **HarmonyOS Sans SC**（© 2021 Huawei Device Co., Ltd.）——endfield 主题内嵌中文字体（GB2312 子集 woff2），授权条款见 [assets/fonts/LICENSE-HarmonyOS-Sans.txt](assets/fonts/LICENSE-HarmonyOS-Sans.txt)。
+- **[ignoredone.space · 终末地美术资源系统](https://www.ignoredone.space/index.php/endfield_design/)**——其官方封面视觉走查为 endfield 增强层（方括号标题、底边裁切幽灵大字、左缘刻度尺、底边收边带）提供了构图参考。
+
 ## 开发
 
 ```bash
