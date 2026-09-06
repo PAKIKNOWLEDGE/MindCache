@@ -901,7 +901,7 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
 <div class=\"topbar\"><span><b>MIND</b> // PERSONAL KNOWLEDGE BASE</span><span>{count_line} &nbsp;<button class=\"tbtn dbtn\" id=\"densitybtn\">DENSITY</button> <button class=\"tbtn\" id=\"themebtn\">THEME</button></span></div>\n\
 <nav>{nav}</nav>\n\
 {body}\n\
-<div class=\"statusbar\"><span>MIND v{VERSION}</span><span>{built}</span></div>\n\
+<div class=\"statusbar\"><span>MIND v{VERSION}</span><span>LAST BUILD {built}</span></div>\n\
 </div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n
 function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
 var rm=false;try{{rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches}}catch(e){{}}

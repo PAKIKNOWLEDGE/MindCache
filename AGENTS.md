@@ -23,7 +23,7 @@ mind check       # 应显示 0 error（vault 为空时 0 ok 属正常）
 ```bash
 mind new idea "hello world"     # 记下部署完成的时刻
 mind check; mind build
-ls ~/mind/dist/                  # 应有 index.html + style.css + 4 个分页 + pages/
+ls ~/mind/dist/                  # 应有 index.html + style.css + 4 个分页 + pages/ + fonts/
 ```
 
 ## 第 3 步：常驻服务（可选，局域网访问 dashboard）
@@ -63,6 +63,42 @@ loginctl enable-linger $USER   # 注销后仍常驻
 
 - 用户说"记一下：……" → Agent 应创建文件、跑 `mind check && mind build`、向用户简短确认。
 - 用户问"我之前是不是想过……" → Agent 应 rg 检索 `~/mind/` 并如实回答。
+
+## 后续版本更新（用户要求时）
+
+更新只做**源码仓库 + 服务重启**，vault 数据不动（数据流程见下）。
+
+```bash
+# ① 进到 T430 上存放 MindCache 源码的目录（当初 clone 的地方），先拉代码
+cd <MindCache 源码目录> && git pull
+# ② 看这次改了什么，再决定是否需要动 vault/SPEC（纯代码更新通常不需要）
+git log --oneline -5
+# ③ 重装二进制——注意：与首次部署同机制，用 nix-env，不是 nix profile！
+nix-env -f . -iA mindcache      # 同名安装即覆盖升级，旧版进 profile 历史
+# ④ 让常驻服务换上新二进制（ExecStart 指向 ~/.nix-profile/bin/mind 的当前代）
+systemctl --user restart mind.service
+```
+
+验收：浏览器硬刷新（Ctrl+F5）dashboard，右下角 `MIND v<版本>` 与 `LAST BUILD` 时间应为新值；或 `mind --help` 首行核对版本。
+
+**绝对不要做**：
+
+- 不要用 `nix profile install/remove ./result` 之类 flake 命令装这个仓库——`default.nix` 是 channel 风格，只能用 `nix-env -f . -iA mindcache`。两套机制混用会各自维护 profile，PATH 里可能残留旧版 mind。
+- 不要在 `git pull` 之前 build、看 diff 或改源码。
+- 不要跳过第 ③ 步直接重启服务——重启不会自己拉新代码。
+- 不要动 vault（`~/mind/`）里的文件来"配合更新"，除非 SPEC.md 有明确迁移要求。
+- 不要动 `~/.config/mind/config.toml` 与 `mind.service` 文件本身。
+
+**回滚**（新版本有问题时）：`nix-env --rollback` 退回上一代二进制，再 `systemctl --user restart mind.service`。
+
+## vault 侧流程（与代码更新无关，随时可做）
+
+```bash
+cd ~/mind && git pull          # vault 本身是 git 仓库，拉最新数据
+mind check && mind build       # 校验 + 重建 dashboard
+```
+
+需要对照最新 SPEC.md 人工检查的内容（类型名、字段变化）在 pull 后 `git log -p` 看 diff 判断，不要盲目批量改文件。
 
 ## 格式规范
 
