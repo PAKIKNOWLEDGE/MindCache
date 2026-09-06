@@ -736,13 +736,14 @@ fn render_md(body: &str) -> String {
     comrak::markdown_to_html(body, &opts)
 }
 
-// 主题三态：默认跟随系统；data-theme 覆盖。concat! 只接受字面量，
-// light/dark 两组 token 各出现两份（:root 基准 + 显式覆盖），改色值时四处同步。
+// 主题四态：auto（跟随系统）/ dark / light / endfield（工业印刷风参考 design-ref/）。
+// concat! 只接受字面量，token 各出现两份（:root 基准 + 显式覆盖），改色值时同步所有块。
 const CSS: &str = concat!(
     r###":root{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); }
 :root[data-theme="light"]{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); ;color-scheme:light }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark } }
-:root[data-theme="dark"]{ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark }"###,
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]):not([data-theme="endfield"]){ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark } }
+:root[data-theme="dark"]{ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark }
+:root[data-theme="endfield"]{ --paper:#e8e8e2; --panel:#f2f2ec; --card:#dcddd6; --ink:#101110; --muted:#4a4c48; --line:#d8d9d5; --accent:#6b5d00; --shadow:rgba(16,17,16,.10); ;color-scheme:light }"###,
     r###"*{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);
@@ -852,7 +853,7 @@ fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line:
 </div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n
 var b=document.getElementById('themebtn');
 if(b){{
-  var modes=['auto','dark','light'];
+  var modes=['auto','dark','light','endfield'];
   function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
   function mpaint(){{b.textContent='THEME: '+mcur().toUpperCase()}}
   b.addEventListener('click',function(){{
