@@ -739,9 +739,11 @@ fn render_md(body: &str) -> String {
 // 主题四态：auto（跟随系统）/ dark / light / endfield（工业印刷风参考 design-ref/）。
 // concat! 只接受字面量，token 各出现两份（:root 基准 + 显式覆盖），改色值时同步所有块。
 // HarmonyOS Sans SC（华为，免费商用授权，随本二进制再分发须保留 LICENSE）
-// 内嵌进单二进制：mind build 时写入 dist/fonts/，serve 后任何设备同一套字
-const FONT_REGULAR: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf");
-const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Bold.ttf");
+// 内嵌的是**子集**：GB2312 全部汉字 + ASCII + 常用符号（约 7500 字，woff2 各 <1MB）。
+// 子集外字符（生僻字/emoji）由浏览器按字符回退到栈内下一字体，不会缺字空白。
+// 若需扩充字符集：用 fontTools.subset 以 --text-file 重新生成后替换 assets/fonts/ 下文件
+const FONT_REGULAR: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Regular.woff2");
+const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Bold.woff2");
 const FONT_LICENSE: &[u8] = include_bytes!("../assets/fonts/LICENSE-HarmonyOS-Sans.txt");
 
 const CSS: &str = concat!(
@@ -832,9 +834,9 @@ h1.entry{font-size:34px;font-weight:400;margin:6px 0 18px;line-height:1.3}
     // ---- endfield 主题专属层：全部选择器挂在 [data-theme="endfield"] 下，
     // 其他主题（auto/light/dark）不生成任何效果，保证原有设计语言零污染
     r###"@font-face{font-family:"HarmonyOS Sans SC";
-src:url(fonts/HarmonyOS_Sans_SC_Regular.ttf) format("truetype");font-weight:400;font-display:swap}
+src:url(fonts/HarmonyOS_Sans_SC_Regular.woff2) format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"HarmonyOS Sans SC";
-src:url(fonts/HarmonyOS_Sans_SC_Bold.ttf) format("truetype");font-weight:700;font-display:swap}
+src:url(fonts/HarmonyOS_Sans_SC_Bold.woff2) format("woff2");font-weight:700;font-display:swap}
 .dbtn{display:none}
 [data-theme="endfield"] .dbtn{display:inline-block}
 [data-theme="endfield"] .grid{grid-template-columns:repeat(var(--cols,3),minmax(0,1fr))}
@@ -1046,11 +1048,13 @@ fn cmd_build(vault: PathBuf) {
     fs::create_dir_all(&pages).unwrap_or_else(|e| die(&format!("创建 dist 失败: {e}")));
     fs::write(dist.join("style.css"), CSS).unwrap();
     // endfield 主题的 @font-face 引用相对 style.css 的 fonts/ 目录，
-    // 详情页在 pages/ 子目录也经 ../style.css 指向同一 dist/style.css，路径恒定
+    // 详情页在 pages/ 子目录也经 ../style.css 指向同一 dist/style.css，路径恒定。
+    // 整目录重建：字体改版（如 TTF→woff2）后 dist 内不残留旧格式文件
     let fonts_dir = dist.join("fonts");
+    let _ = fs::remove_dir_all(&fonts_dir);
     fs::create_dir_all(&fonts_dir).unwrap_or_else(|e| die(&format!("创建 fonts 失败: {e}")));
-    fs::write(fonts_dir.join("HarmonyOS_Sans_SC_Regular.ttf"), FONT_REGULAR).unwrap();
-    fs::write(fonts_dir.join("HarmonyOS_Sans_SC_Bold.ttf"), FONT_BOLD).unwrap();
+    fs::write(fonts_dir.join("HarmonyOS_Sans_SC_Regular.woff2"), FONT_REGULAR).unwrap();
+    fs::write(fonts_dir.join("HarmonyOS_Sans_SC_Bold.woff2"), FONT_BOLD).unwrap();
     fs::write(fonts_dir.join("LICENSE-HarmonyOS-Sans.txt"), FONT_LICENSE).unwrap();
 
     sort_by_created(&mut entries);
@@ -1262,6 +1266,7 @@ fn content_type(p: &Path) -> &'static str {    match p.extension().and_then(|e| 
         "svg" => "image/svg+xml",
         "ico" => "image/x-icon",
         "ttf" => "font/ttf",
+        "woff2" => "font/woff2",
         _ => "application/octet-stream",
     }
 }
@@ -1320,7 +1325,7 @@ fn cmd_serve(vault: PathBuf, port: u16) {
                     // 例外：ttf 字体体积大且文件名含字重、内容极少变更，允许缓存一天，
                     // 否则 8MB×每次翻页对局域网手机是实打实的负担
                     let cache = match canonical.extension().and_then(|e| e.to_str()) {
-                        Some("ttf") => "public, max-age=86400",
+                        Some("ttf") | Some("woff2") => "public, max-age=86400",
                         _ => "no-store",
                     };
                     let head = format!(
