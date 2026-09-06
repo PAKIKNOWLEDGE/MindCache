@@ -738,6 +738,12 @@ fn render_md(body: &str) -> String {
 
 // 主题四态：auto（跟随系统）/ dark / light / endfield（工业印刷风参考 design-ref/）。
 // concat! 只接受字面量，token 各出现两份（:root 基准 + 显式覆盖），改色值时同步所有块。
+// HarmonyOS Sans SC（华为，免费商用授权，随本二进制再分发须保留 LICENSE）
+// 内嵌进单二进制：mind build 时写入 dist/fonts/，serve 后任何设备同一套字
+const FONT_REGULAR: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Regular.ttf");
+const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Bold.ttf");
+const FONT_LICENSE: &[u8] = include_bytes!("../assets/fonts/LICENSE-HarmonyOS-Sans.txt");
+
 const CSS: &str = concat!(
     r###":root{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); }
 :root[data-theme="light"]{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); ;color-scheme:light }
@@ -825,19 +831,23 @@ h1.entry{font-size:34px;font-weight:400;margin:6px 0 18px;line-height:1.3}
 "###,
     // ---- endfield 主题专属层：全部选择器挂在 [data-theme="endfield"] 下，
     // 其他主题（auto/light/dark）不生成任何效果，保证原有设计语言零污染
-    r###".dbtn{display:none}
+    r###"@font-face{font-family:"HarmonyOS Sans SC";
+src:url(fonts/HarmonyOS_Sans_SC_Regular.ttf) format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"HarmonyOS Sans SC";
+src:url(fonts/HarmonyOS_Sans_SC_Bold.ttf) format("truetype");font-weight:700;font-display:swap}
+.dbtn{display:none}
 [data-theme="endfield"] .dbtn{display:inline-block}
 [data-theme="endfield"] .grid{grid-template-columns:repeat(var(--cols,3),minmax(0,1fr))}
 @media(max-width:920px){[data-theme="endfield"] .grid{grid-template-columns:1fr}}
 @media (prefers-color-scheme: dark){
-[data-theme="endfield"] body{font-family:MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace;
+[data-theme="endfield"] body{font-family:"HarmonyOS Sans SC",MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace;
   background-image:repeating-linear-gradient(0deg,rgba(245,245,240,.03) 0,rgba(245,245,240,.03) 1px,transparent 1px,transparent 28px),
     repeating-linear-gradient(90deg,rgba(245,245,240,.03) 0,rgba(245,245,240,.03) 1px,transparent 1px,transparent 28px)}}
 @media (prefers-color-scheme: light){
-[data-theme="endfield"] body{font-family:MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace}}
+[data-theme="endfield"] body{font-family:"HarmonyOS Sans SC",MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace}}
 [data-theme="endfield"] .serif{font-family:inherit}
 [data-theme="endfield"] h1.entry,[data-theme="endfield"] .clock{
-  font-family:"Arial Black",MiSans,Arial,sans-serif;font-weight:900;letter-spacing:.02em}
+  font-family:"Arial Black","HarmonyOS Sans SC",Arial,sans-serif;font-weight:900;letter-spacing:.02em}
 [data-theme="endfield"] ::selection{background:var(--accent);color:var(--paper)}
 [data-theme="endfield"] :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [data-theme="endfield"] *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
@@ -1035,6 +1045,13 @@ fn cmd_build(vault: PathBuf) {
     let _ = fs::remove_dir_all(&pages);
     fs::create_dir_all(&pages).unwrap_or_else(|e| die(&format!("创建 dist 失败: {e}")));
     fs::write(dist.join("style.css"), CSS).unwrap();
+    // endfield 主题的 @font-face 引用相对 style.css 的 fonts/ 目录，
+    // 详情页在 pages/ 子目录也经 ../style.css 指向同一 dist/style.css，路径恒定
+    let fonts_dir = dist.join("fonts");
+    fs::create_dir_all(&fonts_dir).unwrap_or_else(|e| die(&format!("创建 fonts 失败: {e}")));
+    fs::write(fonts_dir.join("HarmonyOS_Sans_SC_Regular.ttf"), FONT_REGULAR).unwrap();
+    fs::write(fonts_dir.join("HarmonyOS_Sans_SC_Bold.ttf"), FONT_BOLD).unwrap();
+    fs::write(fonts_dir.join("LICENSE-HarmonyOS-Sans.txt"), FONT_LICENSE).unwrap();
 
     sort_by_created(&mut entries);
 
@@ -1244,6 +1261,7 @@ fn content_type(p: &Path) -> &'static str {    match p.extension().and_then(|e| 
         "jpg" | "jpeg" => "image/jpeg",
         "svg" => "image/svg+xml",
         "ico" => "image/x-icon",
+        "ttf" => "font/ttf",
         _ => "application/octet-stream",
     }
 }
@@ -1299,10 +1317,17 @@ fn cmd_serve(vault: PathBuf, port: u16) {
                 Ok(data) => {
                     // dashboard 期望永远新鲜：mote build 后浏览器必须拿到新文件，
                     // 不发缓存头会触发浏览器启发式缓存，改版后"看起来没生效"
+                    // 例外：ttf 字体体积大且文件名含字重、内容极少变更，允许缓存一天，
+                    // 否则 8MB×每次翻页对局域网手机是实打实的负担
+                    let cache = match canonical.extension().and_then(|e| e.to_str()) {
+                        Some("ttf") => "public, max-age=86400",
+                        _ => "no-store",
+                    };
                     let head = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\n\r\n",
+                        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: {}\r\n\r\n",
                         content_type(&canonical),
-                        data.len()
+                        data.len(),
+                        cache
                     );
                     let _ = stream.write_all(head.as_bytes());
                     let _ = stream.write_all(&data);
