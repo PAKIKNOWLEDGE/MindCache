@@ -1215,8 +1215,10 @@ fn cmd_serve(vault: PathBuf, port: u16) {
             }
             match fs::read(&canonical) {
                 Ok(data) => {
+                    // dashboard 期望永远新鲜：mote build 后浏览器必须拿到新文件，
+                    // 不发缓存头会触发浏览器启发式缓存，改版后"看起来没生效"
                     let head = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n",
+                        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\n\r\n",
                         content_type(&canonical),
                         data.len()
                     );
