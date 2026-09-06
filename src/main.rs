@@ -857,7 +857,7 @@ if(b){{
   function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
   function mpaint(){{b.textContent='THEME: '+mcur().toUpperCase()}}
   b.addEventListener('click',function(){{
-    var nx=modes[(modes.indexOf(mcur())+1)%3];
+    var nx=modes[(modes.indexOf(mcur())+1)%modes.length];
     if(nx==='auto'){{try{{localStorage.removeItem('mind-theme')}}catch(e){{}}document.documentElement.removeAttribute('data-theme')}}
     else{{try{{localStorage.setItem('mind-theme',nx)}}catch(e){{}}document.documentElement.setAttribute('data-theme',nx)}}
     mpaint();
