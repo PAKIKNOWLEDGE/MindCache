@@ -19,9 +19,10 @@ description: 操作用户的个人知识库 MindCache（~/mind/）。当用户�
 
    ```bash
    mind new <type> "标题"          # 拿不准时加 --inbox
+   mind new <type> "标题" --body "正文" --tags "a,b"   # 一步写完正文与标签（正文也可管道喂 stdin）
    ```
 
-   它会生成带时间戳文件名的模板文件并打印路径。正文写在**文件末尾（第二个 `---` 之后，模板尾部已留空行）**，用编辑操作追加即可：
+   它会生成带时间戳文件名的模板文件并打印路径。正文也可写在**文件末尾（第二个 `---` 之后，模板尾部已留空行）**，用编辑操作追加即可：
    - `title` 用一句概括，不要把整句话塞进 title
    - `created` 已由模板生成，不要改
    - `tags` 打 1–3 个自由标签，宁缺勿滥
@@ -40,13 +41,10 @@ description: 操作用户的个人知识库 MindCache（~/mind/）。当用户�
 ## 检索（用户问"我之前是不是想过……"）
 
 ```bash
-V="$(mind path)"
-rg -l "关键词" "$V"          # 找文件
-rg -i -C 2 "关键词" "$V"     # 带上下文
-# rg 不可用时兜底：
-grep -rn --include='*.md' "关键词" "$V"
+mind search 关键词
 ```
 
+- 大小写不敏感，覆盖标题 / 标签 / 正文，含 `archive/`（检索内置在 CLI，无需外部工具）。
 - 多试几个同义关键词（中英文都试）。
 - 目录归属不代表内容边界，全库搜索。
 - 找到后直接把内容讲给用户，并给出文件路径。
@@ -54,8 +52,9 @@ grep -rn --include='*.md' "关键词" "$V"
 
 ## 修改与归档
 
-- 完成 todo：`status` 改为 `done`，**同时写入 `done: 当天日期`**（如 `done: 2026-09-05`）；重开时改回 `open` 并删除 `done` 字段。不挪目录、不删文件。
-- 归档：把文件 `mv` 进 `archive/`，frontmatter 不变。
+- 完成 todo：`mind done <file>`（自动写入 `status: done` 与 `done: 当天日期`）；重开：`mind reopen <file>`（改回 `open` 并删除 `done` 字段）。不挪目录、不删文件。
+- 归档：`mind archive <file>`（移入 `archive/`，frontmatter 不变）。
+- 手动编辑兜底：命令不便时（如批量修 frontmatter）按 SPEC 状态机手工改——done 必须同时写 `done: 当天日期`，reopen 必须删 `done` 字段。
 - 用户说"整理一下 inbox"时：逐条读 `inbox/`，按上面的分类规则移到正确目录，改正缺失/错误的必填字段，最后跑 `mind check; mind build`，汇报移动了哪些。
 - 修改后必须跑 `mind check; mind build`（同上，check 失败不阻塞 build，但要汇报）。
 
@@ -69,5 +68,14 @@ grep -rn --include='*.md' "关键词" "$V"
 
 ## 维护
 
-- vault 应当是 git 仓库（`mind init` 会初始化）。每次写完可以 `git -C "$(mind path)" add -A && git -C "$(mind path)" commit -m "<简述>"` 作为安全网；若 commit 因缺少 user.name/user.email 失败，告知用户配置一次即可，不要自行改全局 git 配置。
+- vault 应当是 git 仓库（`mind init` 会初始化）。每次写完 `git -C "$(mind path)" add -A` 并 commit——**提交信息必须写详细**：首行一句话概括（动词开头，≤50 字），空一行后列改动要点与原因。示例：
+
+  ```bash
+  git -C "$(mind path)" commit -m "捕获: 新增 Redis 速查笔记" -m "- notes/20260909-1242-redis.md: 内存数据库要点记录
+- tags: redis, 备忘
+原因: 用户整理对话所得，便于日后检索"
+  ```
+
+  多个 `-m`（或 heredoc）均可；写清"做了什么 + 为什么"，禁止 "update files" 式空话。
+  若 commit 因缺少 user.name/user.email 失败，告知用户配置一次即可，不要自行改全局 git 配置。
 - dashboard 由 `mind build` 生成在 vault 的 `dist/` 目录下，`mind serve` 在局域网提供访问。

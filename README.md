@@ -9,7 +9,8 @@ filesystem-first 个人知识库。AI Agent 是主要写入者，Markdown 文件
 ```
 
 - 格式规范：[SPEC.md](SPEC.md)
-- Agent 首次部署指南：[AGENTS.md](AGENTS.md)
+- 部署与版本更新指南：[DEPLOY.md](DEPLOY.md)
+- 开发进度对接：[AGENTS.md](AGENTS.md)
 - Agent 操作手册（即 Hermes 的 skill）：[skill/SKILL.md](skill/SKILL.md)
 
 ## 命令
@@ -17,10 +18,13 @@ filesystem-first 个人知识库。AI Agent 是主要写入者，Markdown 文件
 | 命令 | 作用 |
 | --- | --- |
 | `mind init` | 初始化 vault（默认 `~/mind`，含 git init） |
-| `mind new <type> [标题]` | 创建条目（thought / todo / idea / note） |
-| `mind check` | lint 全部条目（文件名、frontmatter、type/目录一致性） |
-| `mind build` | 生成静态站点到 `~/mind/dist/` |
-| `mind serve --port 8181` | 局域网提供 dist 访问 |
+| `mind new <type> [标题]` | 创建条目（thought / todo / idea / note；`--body`/`--tags` 或管道 stdin 一步写正文标签） |
+| `mind check` | lint 全部条目（文件名、frontmatter；type/目录不一致仅 WARN 不报错） |
+| `mind build` | 生成静态站点到 `~/mind/dist/`（index + 分类页 + TAGS 聚合页 + search.json） |
+| `mind search <关键词>` | 全库检索（标题/标签/正文，含 `archive/`；dashboard 搜索框同源） |
+| `mind done <file>` / `mind reopen <file>` | todo 状态机（done 写完成日期，reopen 删 `done` 字段） |
+| `mind archive <file>` | 归档到 `archive/`（frontmatter 不变） |
+| `mind serve --port 8181 [--bind IP]` | 局域网提供 dist 访问 |
 
 vault 位置：`$MIND_VAULT` 或 `--vault PATH` 覆盖，默认 `~/mind`。
 
@@ -43,7 +47,7 @@ nix-env -f . -iA mindcache      # 安装进用户 profile（PATH）
 ## 开发
 
 ```bash
-cargo build --release
-cargo run -- init /tmp/mind-dev
-MIND_VAULT=/tmp/mind-dev cargo run -- check
+nix develop -f shell.nix       # 本机无 rustc：进入开发环境（crates.io 已走国内镜像）
+cargo build                    # 或在环境外直接跑 `nix develop -f shell.nix -c cargo build`
+MIND_VAULT=/tmp/mind-dev cargo run -- init /tmp/mind-dev   # 沙箱验证，勿裸跑 init
 ```
