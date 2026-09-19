@@ -60,6 +60,8 @@ mind search 关键词
 
 ## 禁止
 
+- 正文不写 GFM task list（`- [ ]` / `- [x]`）——SPEC 未定义该范式，用户的状态机是 frontmatter `status: open/done` + todo 条目本身；有未完成事项就 `mind new todo` 建正式条目，note 正文只放指向 todo 的引用。（2026-09-15 被用户纠正过。）
+- 追加事实/勘误用 patch 定点编辑，禁止整文件 write_file 重写——重写丢用户手改，已发生一次（Grok note 被覆盖回退）。（2026-09-15 被用户纠正过。）
 - 不改文件名里的时间戳前缀。
 - 不改 frontmatter 字段名，不自创字段。
 - 不删除 `archive/` 里的任何内容。
