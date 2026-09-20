@@ -4,3 +4,4 @@ result-*
 dist/
 .zcode/
 design-ref/
+.grok/
