@@ -1,0 +1,78 @@
+/* MindCache · ark-ui 外观轴
+   浅色（纸）与深色（午夜）两套解析；本文件只管颜色，不动结构。
+   auto 由 prefers-color-scheme 解析，显式 light/dark 覆盖之。 */
+
+:root {
+  /* 浅色（纸）—— 默认 */
+  --ark-paper: #f3f2ef;
+  --ark-panel: #faf9f7;
+  --ark-card: #e9e7e2;
+  --ark-ink: #080914;
+  --ark-muted: #4c4c59;
+  --ark-line: #d5d2cd;
+  --ark-lift-base: rgba(8, 9, 20, .04);
+
+  /* 水青是唯一信号色：填充用原色，需要承载文字时用加深色阶 */
+  --ark-signal: #46f6e6;
+  --ark-signal-ink: #0a6a64;
+  --ark-focus: #0a6a64;
+  --ark-on-signal: #04120f;
+
+  /* 状态紫只在异常态出现（逾期 / 构建警告） */
+  --ark-state: #6a2fd8;
+  --ark-state-ink: #6a2fd8;
+
+  /* 舞台在两种外观下都保持深色：档案舞台是页面级底片 */
+  --ark-stage-bg: #0a0b16;
+  --ark-stage-ink: #f3f2ef;
+  --ark-stage-muted: #a3a3b4;
+  --ark-stage-line: #2a2b3d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-ark-appearance="light"]) {
+    --ark-paper: #080914;
+    --ark-panel: #0d0e1b;
+    --ark-card: #121321;
+    --ark-ink: #f3f2ef;
+    --ark-muted: #a3a3b4;
+    --ark-line: #24253a;
+    --ark-lift-base: rgba(243, 242, 239, .05);
+
+    --ark-signal: #46f6e6;
+    --ark-signal-ink: #46f6e6;
+    --ark-focus: #46f6e6;
+    --ark-on-signal: #04120f;
+
+    --ark-state: #b08cff;
+    --ark-state-ink: #b08cff;
+
+    --ark-stage-bg: #101122;
+    --ark-stage-ink: #f3f2ef;
+    --ark-stage-muted: #a3a3b4;
+    --ark-stage-line: #2f3050;
+  }
+}
+
+:root[data-ark-appearance="dark"] {
+  --ark-paper: #080914;
+  --ark-panel: #0d0e1b;
+  --ark-card: #121321;
+  --ark-ink: #f3f2ef;
+  --ark-muted: #a3a3b4;
+  --ark-line: #24253a;
+  --ark-lift-base: rgba(243, 242, 239, .05);
+
+  --ark-signal: #46f6e6;
+  --ark-signal-ink: #46f6e6;
+  --ark-focus: #46f6e6;
+  --ark-on-signal: #04120f;
+
+  --ark-state: #b08cff;
+  --ark-state-ink: #b08cff;
+
+  --ark-stage-bg: #101122;
+  --ark-stage-ink: #f3f2ef;
+  --ark-stage-muted: #a3a3b4;
+  --ark-stage-line: #2f3050;
+}

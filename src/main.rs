@@ -11,6 +11,8 @@ const DIRS: [&str; 5] = ["inbox", "todo", "ideas", "notes", "archive"];
 const TYPES: [&str; 4] = ["thought", "todo", "idea", "note"];
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+mod render;
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     if args.is_empty() {
@@ -1049,277 +1051,6 @@ const FONT_REGULAR: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Re
 const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/HarmonyOS_Sans_SC_Bold.woff2");
 const FONT_LICENSE: &[u8] = include_bytes!("../assets/fonts/LICENSE-HarmonyOS-Sans.txt");
 
-const CSS: &str = concat!(
-    r###":root{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); }
-:root[data-theme="light"]{ --paper:#f2ecdf; --panel:#f7f2e7; --card:#efe7d6; --ink:#2b2620; --muted:#756a58; --line:#d3c8b1; --accent:#b3502a; --shadow:rgba(80,60,30,.08); ;color-scheme:light }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]):not([data-theme="endfield"]){ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark } }
-:root[data-theme="dark"]{ --paper:#15120e; --panel:#1c1812; --card:#211c15; --ink:#e8e0d0; --muted:#968b77; --line:#403728; --accent:#d96a3b; --shadow:rgba(0,0,0,.4); ;color-scheme:dark }
-:root[data-theme="endfield"]{ --paper:#e8e8e2; --panel:#f2f2ec; --card:#dcddd6; --ink:#101110; --muted:#4a4c48; --line:#d8d9d5; --accent:#6b5d00; --shadow:rgba(16,17,16,.10); ;color-scheme:light }
-@media (prefers-color-scheme: dark){ :root[data-theme="endfield"]{ --paper:#101110; --panel:#181a18; --card:#1e201d; --ink:#f5f5f0; --muted:#898d89; --line:#343633; --accent:#fff500; --shadow:rgba(0,0,0,.5); ;color-scheme:dark } }"###,
-    r###"*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);
-  font-family:ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace;
-  font-size:14px;line-height:1.65;}
-a{color:inherit;text-decoration:none}
-a:hover{color:var(--accent)}
-.serif{font-family:Georgia,"Times New Roman","Noto Serif CJK SC","Noto Serif SC","Source Han Serif SC","Songti SC",STSong,SimSun,serif}
-.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 40px}
-.topbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
-  border:1px solid var(--line);padding:8px 14px;font-size:11px;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.topbar b{color:var(--accent);font-weight:400}
-nav{display:flex;gap:2px;margin-top:10px;flex-wrap:wrap}
-nav a{border:1px solid var(--line);border-bottom:none;padding:6px 14px;font-size:11px;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:var(--panel)}
-nav a.on{color:var(--accent)}
-.tbtn{background:none;border:1px solid var(--line);color:var(--muted);font:inherit;font-size:11px;letter-spacing:.12em;padding:2px 8px;cursor:pointer;text-transform:uppercase}
-.tbtn:hover{color:var(--accent);border-color:var(--accent)}
-nav a:hover{color:var(--accent)}
-.label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
-  border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px}
-.label b{color:var(--accent);font-weight:400}
-.panel{border:1px solid var(--line);background:var(--panel);padding:16px 18px;box-shadow:0 1px 0 var(--shadow)}
-.grid{display:grid;grid-template-columns:250px 1fr 300px;gap:14px;margin-top:14px;align-items:start}
-@media(max-width:920px){.grid{grid-template-columns:1fr}
-.grid>*{order:0}
-.grid>*:nth-child(1){order:3}
-.grid>*:nth-child(3){order:2}}
-.hero{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-top:14px}
-.clock{font-size:34px;letter-spacing:.08em;color:var(--ink)}
-.clock small{font-size:12px;color:var(--muted);letter-spacing:.14em;display:block;text-align:right}
-.stat{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
-.stat a{color:var(--ink)} .stat a:hover{color:var(--accent)}
-.stat .n{color:var(--accent)}
-.dot{display:inline-block;width:7px;height:7px;background:var(--accent);margin-right:8px;vertical-align:1px}
-.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
-.row:last-child{border-bottom:none}
-.row>div{min-width:0}
-.row .t{font-size:16px;overflow-wrap:anywhere}
-.row .m{font-size:11px;color:var(--muted);white-space:nowrap;letter-spacing:.06em}
-.row .fold{color:var(--accent);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
-.tag{font-size:11px;color:var(--muted);margin-right:6px}
-.tag::before{content:"#"}
-.due{font-size:11px;color:var(--muted);white-space:nowrap}
-.row>*:last-child{flex-shrink:0}
-.overdue{color:var(--accent)}
-.done .t{text-decoration:line-through;color:var(--muted)}
-.done .fold,.done .date,.done .tag,.done .m{color:var(--muted)}
-.vaultwrap{display:flex;flex-direction:column;gap:14px}
-.date{font-size:11px;color:var(--muted);margin-right:6px}
-.empty{color:var(--muted);font-style:italic;padding:10px 0}
-.statusbar{margin-top:16px;border:1px solid var(--line);padding:7px 14px;font-size:11px;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
-  display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-/* entry page */
-.entry-meta{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px}
-.entry-meta b{color:var(--accent);font-weight:400}
-h1.entry{font-size:34px;font-weight:400;margin:6px 0 18px;line-height:1.3}
-.back{display:inline-block;margin-bottom:10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.back:hover{color:var(--accent)}
-.body{max-width:70ch;font-size:15px}
-.body a{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
-.body a:hover{color:var(--accent)}
-.body p{margin:.7em 0}
-.body h1,.body h2,.body h3{font-family:Georgia,"Noto Serif CJK SC","Noto Serif SC",serif;font-weight:400;line-height:1.4}
-.body h1{font-size:24px} .body h2{font-size:20px} .body h3{font-size:17px}
-.body code{background:var(--card);border:1px solid var(--line);padding:0 5px;font-size:.9em}
-.body pre{background:var(--card);border:1px solid var(--line);padding:12px 14px;overflow-x:auto;font-size:13px}
-.body pre code{border:none;padding:0;background:none}
-.body blockquote{margin:.8em 0;padding:.2em 1em;border-left:3px solid var(--accent);color:var(--muted);font-style:italic}
-.body ul,.body ol{padding-left:1.4em}
-.body table{border-collapse:collapse;margin:.8em 0}
-.body th,.body td{border:1px solid var(--line);padding:4px 12px;font-size:13px;text-align:left}
-.body th{background:var(--card);font-weight:400}
-.body hr{border:none;border-top:1px solid var(--line);margin:1.4em 0}
-.body img{max-width:100%}
-.q{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:8px 12px;font:inherit;border-radius:0}
-.q::placeholder{color:var(--muted)}
-.hidden-row{display:none}
-.foldwrap .foldbtn{margin-top:6px}
-"###,
-    // ---- endfield 主题专属层：全部选择器挂在 [data-theme="endfield"] 下，
-    // 其他主题（auto/light/dark）不生成任何效果，保证原有设计语言零污染
-    r###"@font-face{font-family:"HarmonyOS Sans SC";
-src:url(fonts/HarmonyOS_Sans_SC_Regular.woff2) format("woff2");font-weight:400;font-display:swap}
-@font-face{font-family:"HarmonyOS Sans SC";
-src:url(fonts/HarmonyOS_Sans_SC_Bold.woff2) format("woff2");font-weight:700;font-display:swap}
-.dbtn{display:none}
-[data-theme="endfield"] .dbtn{display:inline-block}
-[data-theme="endfield"] .grid{grid-template-columns:repeat(var(--cols,3),minmax(0,1fr))}
-@media(max-width:920px){[data-theme="endfield"] .grid{grid-template-columns:1fr}}
-@media (prefers-color-scheme: dark){
-[data-theme="endfield"] body{font-family:"HarmonyOS Sans SC",MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace;
-  background-image:repeating-linear-gradient(0deg,rgba(245,245,240,.03) 0,rgba(245,245,240,.03) 1px,transparent 1px,transparent 28px),
-    repeating-linear-gradient(90deg,rgba(245,245,240,.03) 0,rgba(245,245,240,.03) 1px,transparent 1px,transparent 28px)}}
-@media (prefers-color-scheme: light){
-[data-theme="endfield"] body{font-family:"HarmonyOS Sans SC",MiSans,ui-monospace,"Cascadia Mono","SF Mono",Consolas,Menlo,monospace}}
-[data-theme="endfield"] .serif{font-family:inherit}
-[data-theme="endfield"] h1.entry,[data-theme="endfield"] .clock{
-  font-family:"Arial Black","HarmonyOS Sans SC",Arial,sans-serif;font-weight:900;letter-spacing:.02em}
-[data-theme="endfield"] ::selection{background:var(--accent);color:var(--paper)}
-[data-theme="endfield"] :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-[data-theme="endfield"] *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
-[data-theme="endfield"] ::-webkit-scrollbar{width:6px;height:6px}
-[data-theme="endfield"] ::-webkit-scrollbar-thumb{background:var(--line)}
-[data-theme="endfield"] ::-webkit-scrollbar-track{background:transparent}
-[data-theme="endfield"] nav a:hover,[data-theme="endfield"] .tbtn:hover,[data-theme="endfield"] .back:hover{
-  background:var(--accent);border-color:var(--accent);color:var(--ink)}
-[data-theme="endfield"] .label::before{content:"[";color:var(--accent);margin-right:5px}
-[data-theme="endfield"] .label::after{content:"]";color:var(--accent);margin-left:5px}
-[data-theme="endfield"] .panel{position:relative;overflow:hidden}
-[data-theme="endfield"] .panel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
-  background:repeating-linear-gradient(to bottom,var(--line) 0,var(--line) 1px,transparent 1px,transparent 10px);
-  opacity:.75;pointer-events:none}
-[data-theme="endfield"] .panel::after{content:attr(data-word);position:absolute;right:12px;bottom:-.36em;
-  font-family:"Arial Black",Arial,sans-serif;font-weight:900;font-size:46px;line-height:1;
-  letter-spacing:.04em;color:var(--ink);opacity:.055;pointer-events:none;white-space:nowrap}
-[data-theme="endfield"] .statusbar{border-bottom:3px solid var(--accent)}
-[data-theme="endfield"] .elayout{position:fixed;inset:0;z-index:2147483000;background:#0a0b0a;pointer-events:none}
-[data-theme="endfield"] .elayout .erail{position:absolute;left:0;top:0;width:10px;height:0;background:#fff500}
-[data-theme="endfield"] .elayout .eread{position:absolute;left:22px;top:0;transform:translateY(-50%);
-  font:11px ui-monospace,Consolas,monospace;letter-spacing:.14em;color:#f5f5f0;white-space:nowrap}
-[data-theme="endfield"] .elayout .ebrand{position:absolute;right:6vw;top:50%;transform:translateY(-50%);
-  font-family:"Arial Black",Arial,sans-serif;font-weight:900;font-size:clamp(26px,5.2vh,64px);
-  line-height:.95;letter-spacing:.02em;color:#f5f5f0;text-align:left}
-"###);
-
-fn page_html(title: &str, nav_active: &str, body: &str, built: &str, count_line: &str) -> String {
-    let title = esc(title); // <title> 不转义会破坏文档头/注入脚本
-    // 只有详情页位于 pages/ 子目录（nav_active 为空），根级链接才需要 ../ 前缀
-    let root = if nav_active.is_empty() { "../" } else { "" };
-    let nav = [
-        ("index.html", "INDEX", "index"),
-        ("inbox.html", "INBOX", "inbox"),
-        ("todo.html", "TODO", "todo"),
-        ("ideas.html", "IDEAS", "ideas"),
-        ("notes.html", "NOTES", "notes"),
-        ("tags.html", "TAGS", "tags"),
-    ]
-    .iter()
-    .map(|(href, name, key)| {
-        let class = if *key == nav_active { " class=\"on\"" } else { "" };
-        format!("<a href=\"{root}{href}\"{class}>{name}</a>")
-    })
-    .collect::<Vec<_>>()
-    .join("");
-    format!(
-        "<!DOCTYPE html>\n<html lang=\"zh\">\n<head>\n<meta charset=\"utf-8\">\n<script>(function(){{try{{var t=localStorage.getItem(\"mind-theme\");if(t)document.documentElement.setAttribute(\"data-theme\",t)}}catch(e){{}}}})();</script>\n\
-<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n\
-<title>{title} · MIND</title>\n<meta name=\"color-scheme\" content=\"light dark\">\n<meta name=\"theme-color\" content=\"#f2ecdf\" media=\"(prefers-color-scheme: light)\">\n<meta name=\"theme-color\" content=\"#15120e\" media=\"(prefers-color-scheme: dark)\">\n<link rel=\"icon\" href=\"data:,\">\n<link rel=\"stylesheet\" href=\"{root}style.css\">\n</head>\n<body>\n\
-<div class=\"wrap\">\n\
-<div class=\"topbar\"><span><b>MIND</b> // PERSONAL KNOWLEDGE BASE</span><span>{count_line} &nbsp;<button class=\"tbtn dbtn\" id=\"densitybtn\">DENSITY</button> <button class=\"tbtn\" id=\"themebtn\">THEME</button></span></div>\n\
-<nav>{nav}</nav>\n\
-{body}\n\
-<div class=\"statusbar\"><span>MIND v{VERSION}</span><span>LAST BUILD {built}</span></div>\n\
-</div>\n<script>\n(function(){{var c=document.getElementById('clock');if(c){{function t(){{var d=new Date();c.childNodes[0].nodeValue=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}}t();setInterval(t,60000);}}\n}})();\n
-function mcur(){{try{{return localStorage.getItem('mind-theme')||'auto'}}catch(e){{return 'auto'}}}}
-var rm=false;try{{rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches}}catch(e){{}}
-function playLoader(short){{
-  if(document.getElementById('elayout'))return;
-  var full=short?850:1500,tp=short?350:900,te=300,tf=full-tp-te;
-  var el=document.createElement('div');el.id='elayout';el.className='elayout';el.setAttribute('aria-hidden','true');
-  el.innerHTML='<div class=\"erail\"></div><div class=\"eread\">000%<br>LOADING</div><div class=\"ebrand\">END<br>FIELD</div>';
-  document.body.appendChild(el);
-  var rail=el.querySelector('.erail'),read=el.querySelector('.eread'),t0=Date.now(),done=false;
-  function finish(){{if(done)return;done=true;clearInterval(iv);if(el.parentNode)el.parentNode.removeChild(el)}}
-  function frame(){{
-    if(done)return;
-    var t=Date.now()-t0;
-    if(t<=tp){{
-      var k=1-Math.pow(1-t/tp,3),pct=Math.min(100,Math.round(k*100));
-      rail.style.height=pct+'%';read.style.top=Math.min(94,pct)+'%';
-      read.innerHTML=('00'+pct).slice(-3)+'%<br>LOADING';
-    }}else if(t<=tp+te){{
-      rail.style.height='100%';rail.style.width=(10+90*(t-tp)/te)+'vw';read.style.display='none';
-    }}else if(t<=full){{
-      el.style.opacity=String(Math.max(0,1-(t-tp-te)/tf));
-    }}else{{finish()}}
-  }}
-  var iv=setInterval(frame,50);
-  if(window.requestAnimationFrame){{(function loop(){{if(done)return;frame();requestAnimationFrame(loop)}})()}}
-  setTimeout(finish,full+800);
-}}
-var b=document.getElementById('themebtn');
-if(b){{
-  var modes=['auto','dark','light','endfield'];
-  function mpaint(){{var m=mcur();b.textContent=(m==='endfield'?'● ':'')+'THEME: '+m.toUpperCase()}}
-  b.addEventListener('click',function(){{
-    var nx=modes[(modes.indexOf(mcur())+1)%modes.length];
-    if(nx==='auto'){{try{{localStorage.removeItem('mind-theme')}}catch(e){{}}document.documentElement.removeAttribute('data-theme')}}
-    else{{try{{localStorage.setItem('mind-theme',nx)}}catch(e){{}}document.documentElement.setAttribute('data-theme',nx)}}
-    mpaint();
-    if(nx==='endfield'&&!rm)playLoader(true);
-  }});
-  mpaint();
-}}
-var d=document.getElementById('densitybtn');
-if(d){{
-  function dcur(){{var v=parseInt((function(){{try{{return localStorage.getItem('mind-density')||'3'}}catch(e){{return '3'}}}})(),10);return v===2||v===3||v===4?v:3}}
-  function dpaint(){{var n=dcur();d.textContent='DENSITY: '+n;document.documentElement.style.setProperty('--cols',n)}}
-  d.addEventListener('click',function(){{
-    var nx=dcur()>=4?2:dcur()+1;
-    try{{localStorage.setItem('mind-density',''+nx)}}catch(e){{}}
-    dpaint();
-  }});
-  dpaint();
-}}
-if(mcur()==='endfield'&&!rm)playLoader(false);
-(function(){{
-  // 通用折叠：.foldwrap[data-fold=N] 内超过 N 条的 .row 隐去，SHOW ALL 展开后按钮消失
-  var fw=document.querySelectorAll('.foldwrap[data-fold]');
-  for(var i=0;i<fw.length;i++){{
-    (function(w){{
-      var n=parseInt(w.getAttribute('data-fold'),10)||8;
-      var rows=w.querySelectorAll(':scope > .row');
-      if(rows.length<=n)return;
-      for(var j=n;j<rows.length;j++)rows[j].classList.add('hidden-row');
-      var btn=w.querySelector('.foldbtn');
-      if(!btn)return;
-      btn.addEventListener('click',function(){{
-        for(var j=0;j<rows.length;j++)rows[j].classList.remove('hidden-row');
-        btn.style.display='none';
-      }});
-    }})(fw[i]);
-  }}
-  // dashboard 检索：#q 输入 → search.json 过滤；结果行一律 textContent 赋值防注入
-  var q=document.getElementById('q');
-  if(q){{
-    var idx=null,res=document.getElementById('results');
-    fetch('search.json').then(function(r){{return r.json();}}).then(function(d){{
-      idx=d.entries||[];
-      if(q.value)q.dispatchEvent(new Event('input')); // fetch 先于输入完成时补渲染
-    }})
-      .catch(function(){{var p=q.closest('.panel');if(p)p.style.display='none';}}); // file:// 打开时降级隐藏搜索面板
-    q.addEventListener('input',function(){{
-      if(!res)return;
-      res.innerHTML='';
-      if(!idx)return;
-      var s=q.value.toLowerCase().trim();
-      if(!s)return;
-      var hits=[];
-      for(var k=0;k<idx.length&&hits.length<50;k++){{
-        var e=idx[k];
-        var hay=(e.title+' '+(e.tags||[]).join(' ')+' '+e.body).toLowerCase();
-        if(hay.indexOf(s)>=0)hits.push(e);
-      }}
-      var cnt=document.createElement('div');cnt.className='row';
-      var cm=document.createElement('span');cm.className='m';cm.textContent=hits.length+' match(es)';
-      cnt.appendChild(cm);res.appendChild(cnt);
-      for(var i=0;i<hits.length;i++){{
-        var e=hits[i];
-        var row=document.createElement('div');row.className='row';
-        var l=document.createElement('a');l.className='t serif';l.href='pages/'+e.stem+'.html';l.textContent=e.title;
-        var m=document.createElement('span');m.className='m';m.textContent=(e.dir||'')+' // '+(e.created||'');
-        row.appendChild(l);row.appendChild(m);
-        res.appendChild(row);
-      }}
-    }});
-  }}
-}})();
-</script>\n</body>\n</html>\n",
-    )
-}
 
 fn is_done_entry(e: &Entry) -> bool {
     e.fm.type_ == "todo" && e.fm.status.as_deref() == Some("done")
@@ -1327,70 +1058,6 @@ fn is_done_entry(e: &Entry) -> bool {
 
 fn is_open_todo(e: &&Entry) -> bool {
     e.fm.type_ == "todo" && e.fm.status.as_deref().unwrap_or("open") != "done"
-}
-
-fn entry_row(e: &Entry, rel_prefix: &str, show_dir: bool) -> String {
-    let fold = if show_dir {
-        format!("<span class=\"fold\">{}</span> ", esc(&e.dir))
-    } else {
-        String::new()
-    };
-    let tags = e
-        .fm
-        .tags
-        .iter()
-        .map(|t| {
-            format!(
-                "<a class=\"tag\" href=\"{rel_prefix}tags.html#{}\">{}</a>",
-                percent_encode(t),
-                esc(t)
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
-    let row_class = if is_done_entry(e) { "row done" } else { "row" };
-    let m = tags_for_meta(e);
-    let m_html = if m.is_empty() {
-        String::new()
-    } else {
-        format!("<span class=\"m\">{m}</span>")
-    };
-    format!(
-        "<div class=\"{row_class}\"><div><span class=\"date\">{date}</span> {fold}<a class=\"t serif\" href=\"{prefix}pages/{stem}.html\">{title}</a> {tags}</div>{m_html}</div>",
-        date = esc(&fmt_created(&e.fm.created)),
-        stem = esc(&e.stem),
-        title = esc(&e.fm.title),
-        prefix = rel_prefix,
-    )
-}
-
-/// 共享的 due 渲染：overdue 高亮在所有视图一致
-fn due_span(e: &Entry) -> String {
-    e.fm.due
-        .as_deref()
-        .map(|d| {
-            let overdue = d < &Local::now().format("%Y-%m-%d").to_string();
-            format!(
-                "<span class=\"due{}\">due {}</span>",
-                if overdue { " overdue" } else { "" },
-                esc(d)
-            )
-        })
-        .unwrap_or_default()
-}
-
-fn tags_for_meta(e: &Entry) -> String {
-    if e.fm.type_ == "todo" {
-        let s = esc(e.fm.status.as_deref().unwrap_or("open"));
-        let due = due_span(e);
-        if due.is_empty() {
-            s
-        } else {
-            format!("{s} {due}")
-        }
-    } else {
-        String::new()
-    }
 }
 
 fn sort_by_created(entries: &mut [Entry]) {
@@ -1416,19 +1083,6 @@ fn json_escape(s: &str) -> String {
     o
 }
 
-/// URL 百分号编码：保留 [A-Za-z0-9-._~]，其余字节 %XX（大写十六进制）。
-fn percent_encode(s: &str) -> String {
-    let mut o = String::new();
-    for &b in s.as_bytes() {
-        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
-            o.push(b as char);
-        } else {
-            o.push_str(&format!("%{b:02X}"));
-        }
-    }
-    o
-}
-
 fn cmd_build(vault: PathBuf) {
     if !vault.is_dir() {
         eprintln!("vault 不存在: {}（先运行 mind init）", vault.display());
@@ -1439,15 +1093,15 @@ fn cmd_build(vault: PathBuf) {
         eprintln!("警告: {f}: {e}（该文件未纳入视图，先运行 mind check）");
     }
     let built = Local::now().format("%Y-%m-%d %H:%M").to_string();
+    let today = Local::now().format("%Y-%m-%d").to_string();
 
     let dist = vault.join("dist");
     let pages = dist.join("pages");
     let _ = fs::remove_dir_all(&pages);
     fs::create_dir_all(&pages).unwrap_or_else(|e| die(&format!("创建 dist 失败: {e}")));
-    fs::write(dist.join("style.css"), CSS).unwrap();
-    // endfield 主题的 @font-face 引用相对 style.css 的 fonts/ 目录，
-    // 详情页在 pages/ 子目录也经 ../style.css 指向同一 dist/style.css，路径恒定。
-    // 整目录重建：字体改版（如 TTF→woff2）后 dist 内不残留旧格式文件
+    fs::write(dist.join("style.css"), render::CSS).unwrap();
+    // 字体目录整目录重建：改版（如 TTF→woff2）后 dist 内不残留旧格式文件。
+    // @font-face 引用相对 style.css 的 fonts/，详情页在 pages/ 也经 ../style.css 指向同一目录。
     let fonts_dir = dist.join("fonts");
     let _ = fs::remove_dir_all(&fonts_dir);
     fs::create_dir_all(&fonts_dir).unwrap_or_else(|e| die(&format!("创建 fonts 失败: {e}")));
@@ -1456,58 +1110,177 @@ fn cmd_build(vault: PathBuf) {
     fs::write(fonts_dir.join("LICENSE-HarmonyOS-Sans.txt"), FONT_LICENSE).unwrap();
 
     sort_by_created(&mut entries);
-
     let total = entries.len();
-    let count_line = format!("{} ENTRIES", total);
+    let count_line =
+        format!("<b class=\"num\">{total}</b> <span class=\"en\">ENTRIES</span> 条");
 
-    // ---- 单条目详情页
-    for e in &entries {
-        let tags = e
-            .fm
-            .tags
+    // ---- 库内分布：圆环、图例、状态读数的唯一数据源（全部真实计数）
+    let n_open = entries.iter().filter(|e| is_open_todo(e)).count();
+    let n_done = entries.iter().filter(|e| is_done_entry(e)).count();
+    let n_inbox = entries.iter().filter(|e| e.dir == "inbox").count();
+    let n_ideas = entries.iter().filter(|e| e.dir == "ideas").count();
+    let n_notes = entries.iter().filter(|e| e.dir == "notes").count();
+    let n_archive = entries.iter().filter(|e| e.dir == "archive").count();
+    let n_overdue = entries
+        .iter()
+        .filter(|e| {
+            is_open_todo(e) && e.fm.due.as_deref().map(|d| d < today.as_str()).unwrap_or(false)
+        })
+        .count();
+    // 六段之和恒等于全部条目数，中心数字与页头计数始终一致；逾期是未完成待办的子集，
+    // 在图例里单独标注，不参与求和（避免重复计数）。
+    let segs = [
+        render::Seg { label: "收件", en: "INBOX", n: n_inbox, kind: 0, op: "0.72" },
+        render::Seg { label: "待办·未完成", en: "TODO OPEN", n: n_open, kind: 1, op: "1" },
+        render::Seg { label: "待办·已完成", en: "TODO DONE", n: n_done, kind: 0, op: "0.50" },
+        render::Seg { label: "想法", en: "IDEAS", n: n_ideas, kind: 0, op: "0.38" },
+        render::Seg { label: "笔记", en: "NOTES", n: n_notes, kind: 0, op: "0.28" },
+        render::Seg { label: "归档", en: "ARCHIVE", n: n_archive, kind: 0, op: "0.20" },
+    ];
+    let instrument = format!("{}{}", render::ring(&segs), render::legend(&segs, n_overdue));
+
+    // ---- 最近 14 天捕获：按文件名时间戳前缀逐日统计（SPEC §2 的前缀即本地创建时间）
+    let now = Local::now();
+    let mut days: Vec<(String, usize)> = Vec::new();
+    for back in (0..14).rev() {
+        let d = now - chrono::Duration::days(back);
+        let key = d.format("%Y%m%d").to_string();
+        let n = entries
             .iter()
-            .map(|t| {
-                format!(
-                    "<a class=\"tag\" href=\"../tags.html#{}\">{}</a>",
-                    percent_encode(t),
-                    esc(t)
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("");
+            .filter(|e| e.dir != "archive" && e.stem.starts_with(&key))
+            .count();
+        days.push((d.format("%m-%d").to_string(), n));
+    }
+
+    // ---- 单条目详情页：舞台由单条档案主导，邻接导航按 created 序（数据已存在）
+    for (i, e) in entries.iter().enumerate() {
+        let root = render::root_of("");
+        let mut fields = String::new();
+        fields.push_str(&format!(
+            "<div><span>类型 <span class=\"en\">TYPE</span></span><b>{}</b></div>",
+            esc(&e.fm.type_)
+        ));
+        fields.push_str(&format!(
+            "<div><span>目录 <span class=\"en\">FOLDER</span></span><b>{}</b></div>",
+            esc(&e.dir)
+        ));
+        fields.push_str(&format!(
+            "<div><span>创建 <span class=\"en\">CREATED</span></span><b>{}</b></div>",
+            esc(&fmt_created(&e.fm.created))
+        ));
+        if e.fm.type_ == "todo" {
+            fields.push_str(&format!(
+                "<div><span>状态 <span class=\"en\">STATUS</span></span><b>{}</b></div>",
+                esc(e.fm.status.as_deref().unwrap_or("open"))
+            ));
+        }
+        if let Some(d) = &e.fm.due {
+            fields.push_str(&format!(
+                "<div><span>截止 <span class=\"en\">DUE</span></span><b>{}</b></div>",
+                esc(d)
+            ));
+        }
+        if let Some(d) = &e.fm.done {
+            fields.push_str(&format!(
+                "<div><span>完成 <span class=\"en\">DONE</span></span><b>{}</b></div>",
+                esc(d)
+            ));
+        }
+        if !e.fm.tags.is_empty() {
+            let tl: Vec<String> = e
+                .fm
+                .tags
+                .iter()
+                .map(|t| {
+                    format!(
+                        "<a class=\"tag\" href=\"{root}tags.html#{}\">{}</a>",
+                        esc(t),
+                        esc(t)
+                    )
+                })
+                .collect();
+            fields.push_str(&format!(
+                "<div><span>标签 <span class=\"en\">TAGS</span></span><b>{}</b></div>",
+                tl.join(" ")
+            ));
+        }
+
+        let mut actions = String::new();
+        // archive 没有独立分类页，返回链接指向索引
+        let back = if e.dir == "archive" {
+            format!("{root}index.html")
+        } else {
+            format!("{root}{}.html", esc(&e.dir))
+        };
+        actions.push_str(&render::action(&back, "← 返回 <span class=\"en\">BACK</span>", "is-on-stage"));
+        let mut adj = String::new();
+        if i > 0 {
+            adj.push_str(&render::entry_row(&entries[i - 1], root, true, &today));
+            actions.push_str(&render::action(
+                &format!("{root}pages/{}.html", esc(&entries[i - 1].stem)),
+                "← 更新一条 <span class=\"en\">NEWER</span>",
+                "is-on-stage",
+            ));
+        }
+        if let Some(p) = entries.get(i + 1) {
+            adj.push_str(&render::entry_row(p, root, true, &today));
+            actions.push_str(&render::action(
+                &format!("{root}pages/{}.html", esc(&p.stem)),
+                "更早一条 <span class=\"en\">OLDER</span> →",
+                "is-on-stage",
+            ));
+        }
+
         let mut meta = format!(
-            "<b>{}</b> // {} // {}",
-            esc(&e.fm.type_),
-            esc(&e.dir),
+            "<span>创建</span> <span class=\"en\">CREATED</span> <b>{}</b>",
             esc(&fmt_created(&e.fm.created))
         );
         if e.fm.type_ == "todo" {
             meta.push_str(&format!(
-                " // {}",
+                " · <span>状态</span> <span class=\"en\">STATUS</span> <b>{}</b>",
                 esc(e.fm.status.as_deref().unwrap_or("open"))
             ));
             if let Some(d) = &e.fm.due {
-                meta.push_str(&format!(" <span class=\"due\">due {}</span>", esc(d)));
+                meta.push_str(&format!(
+                    " · <span>截止</span> <span class=\"en\">DUE</span> <b>{}</b>",
+                    esc(d)
+                ));
             }
         }
-        // archive 没有独立分类页，返回链接指向 dashboard
-        let back = if e.dir == "archive" {
-            "../index.html".to_string()
-        } else {
-            format!("../{}.html", esc(&e.dir))
-        };
-        let body = format!(
-            "<a class=\"back\" href=\"{back}\">← BACK</a>\n\
-<div class=\"entry-meta\">{meta}</div>\n\
-<h1 class=\"entry serif\">{title}</h1>\n\
-<div>{tags}</div>\n\
-<div class=\"body\">{md}</div>",
-            meta = meta,
-            title = esc(&e.fm.title),
-            md = render_md(&e.body),
+        let stage = render::stage(
+            &format!(
+                "<span class=\"en\">{} / {}</span>",
+                esc(&e.fm.type_),
+                esc(&e.dir)
+            ),
+            &esc(&e.fm.title),
+            &meta,
+            "",
+            &actions,
+            "",
         );
-        let html = page_html(&e.fm.title, "", &body, &built, &count_line);
-        fs::write(pages.join(format!("{}.html", e.stem)), html)
+
+        let mut body = format!("<div class=\"dossier\">{fields}</div>");
+        body.push_str(&render::band(
+            "",
+            "01 / DOCUMENT",
+            "正文",
+            "",
+            &format!("<div class=\"doc\">{}</div>", render_md(&e.body)),
+            "reveal reveal-2",
+        ));
+        if !adj.is_empty() {
+            body.push_str(&render::band(
+                "",
+                "02 / CHRONOLOGY",
+                "邻接条目",
+                "按创建时间",
+                &format!("<ul class=\"rows\">{adj}</ul>"),
+                "reveal reveal-3",
+            ));
+        }
+        let page = render::Page::new(&e.fm.title, "").stage(stage).body(body);
+        fs::write(pages.join(format!("{}.html", e.stem)), render::render(&page, &built, &count_line))
             .unwrap_or_else(|er| die(&format!("写入详情页失败: {er}")));
     }
 
@@ -1537,8 +1310,7 @@ fn cmd_build(vault: PathBuf) {
     jb.push_str("]}");
     fs::write(dist.join("search.json"), jb).unwrap();
 
-    // ---- 标签聚合页 tags.html：全部条目（含 archive）按 tag 分组；
-    // 排序按条数降序、再按名称小写升序；顶部 chip 索引跳 #percent_encode(tag) 锚点
+    // ---- 标签索引：chip 索引 + 按 tag 分组的档案带（一个舞台里用规则行排，不是 N 个盒子）
     use std::collections::HashMap;
     let mut tag_map: HashMap<&str, Vec<&Entry>> = HashMap::new();
     for e in &entries {
@@ -1555,102 +1327,162 @@ fn cmd_build(vault: PathBuf) {
     });
     let mut tbody = String::new();
     if tag_names.is_empty() {
-        tbody.push_str(
-            "<div class=\"empty\">no tags yet — tag entries with: mind new <type> \"title\" --tags \"a,b\"</div>",
-        );
+        tbody.push_str(&render::band(
+            "",
+            "00 / INDEX",
+            "标签索引",
+            "",
+            "<p class=\"empty\">还没有标签。给条目打标签：mind new &lt;type&gt; \"标题\" --tags \"a,b\"</p>",
+            "reveal reveal-2",
+        ));
     } else {
-        tbody.push_str(
-            "<div class=\"panel\" style=\"margin-top:14px\" data-word=\"TAG INDEX\">\n<div class=\"label\"><b>00</b> // TAG INDEX // ALL</div>\n",
-        );
+        let mut chips = String::new();
         for t in &tag_names {
-            let n = tag_map[*t].len();
-            tbody.push_str(&format!(
-                "<a class=\"tag\" href=\"#{}\">{}+{}</a>\n",
-                percent_encode(t),
+            chips.push_str(&format!(
+                "<li><a class=\"chip\" href=\"#{}\">{}<b>{}</b></a></li>",
                 esc(t),
-                n
+                esc(t),
+                tag_map[*t].len()
             ));
         }
-        tbody.push_str("</div>\n");
-        for t in &tag_names {
-            let n = tag_map[*t].len();
-            tbody.push_str(&format!(
-                "<div class=\"panel\" style=\"margin-top:14px\" id=\"{}\" data-word=\"TAG\">\n<div class=\"label\"><b>01</b> // TAG {} // {}</div>\n",
-                percent_encode(t),
-                esc(t),
-                n
+        tbody.push_str(&render::band(
+            "",
+            "00 / INDEX",
+            "标签索引",
+            &format!("{} 个标签 / TAGS", tag_names.len()),
+            &format!("<ul class=\"chips\">{chips}</ul>"),
+            "reveal reveal-2",
+        ));
+        for (k, t) in tag_names.iter().enumerate() {
+            let rows: String = tag_map[*t]
+                .iter()
+                .map(|e| render::entry_row(e, "", true, &today))
+                .collect::<Vec<_>>()
+                .join("\n");
+            tbody.push_str(&render::band(
+                &esc(t),
+                &format!("{:02} / TAG", k + 1),
+                &format!("#{}", esc(t)),
+                &format!("<b>{}</b> 条", tag_map[*t].len()),
+                &format!("<ul class=\"rows\">{rows}</ul>"),
+                "",
             ));
-            for e in tag_map[*t].iter() {
-                tbody.push_str(&entry_row(e, "", true));
-            }
-            tbody.push_str("\n</div>\n");
         }
     }
-    let thtml = page_html("tags", "tags", &tbody, &built, &count_line);
-    fs::write(dist.join("tags.html"), thtml).unwrap();
+    let tags_stage = render::stage(
+        &render::kicker("档案索引", "ARCHIVE INDEX"),
+        "TAGS",
+        &format!(
+            "<b>{}</b> 个标签 · <b>{total}</b> 条目",
+            tag_names.len()
+        ),
+        "",
+        "",
+        "reveal",
+    );
+    let tags_page = render::Page::new("tags", "tags")
+        .stage(tags_stage)
+        .body(format!("<div class=\"bands\">{tbody}</div>"));
+    fs::write(dist.join("tags.html"), render::render(&tags_page, &built, &count_line)).unwrap();
 
     // ---- 分类页（todo 页按 type 汇总全库，其余按目录）
     for dir in ["inbox", "todo", "ideas", "notes"] {
-        let (rows, sub) = if dir == "todo" {
-            let mut open: Vec<&Entry> =
-                entries.iter().filter(|e| is_open_todo(e)).collect();
+        let sub;
+        let mut bands = String::new();
+        if dir == "todo" {
+            let mut open: Vec<&Entry> = entries.iter().filter(|e| is_open_todo(e)).collect();
             open.sort_by_key(|e| e.fm.due.clone().unwrap_or_else(|| "9999".into()));
+            let open_rows: String = open
+                .iter()
+                .map(|e| render::entry_row(e, "", true, &today))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let open_body = if open.is_empty() {
+                "<p class=\"empty\">没有未完成的待办。</p>".to_string()
+            } else {
+                format!("<ul class=\"rows\">{open_rows}</ul>")
+            };
+            bands.push_str(&render::band(
+                "",
+                "01 / OPEN",
+                "未完成",
+                &format!("<b>{}</b> 条 <span class=\"en\">OPEN</span>", open.len()),
+                &open_body,
+                "reveal reveal-2",
+            ));
+
             let mut done: Vec<&Entry> = entries.iter().filter(|e| is_done_entry(e)).collect();
             done.sort_by_key(|e| std::cmp::Reverse(parse_created(&e.fm.created).unwrap_or(0)));
-            // done 列表全量输出，超过 8 条折叠（同一 foldwrap/JS 机制，无死行）
-            let done_rows = if done.is_empty() {
-                String::new()
-            } else {
-                let inner = done
+            if !done.is_empty() {
+                let inner: String = done
                     .iter()
-                    .map(|e| entry_row(e, "", false))
+                    .map(|e| render::entry_row(e, "", true, &today))
                     .collect::<Vec<_>>()
                     .join("\n");
-                if done.len() > 8 {
+                let done_body = if done.len() > 8 {
                     format!(
-                        "<div class=\"foldwrap\" data-fold=\"8\">\n{inner}\n<button class=\"tbtn foldbtn\">SHOW ALL (+{})</button>\n</div>",
+                        "<div class=\"foldwrap\"><ul class=\"rows\" data-fold=\"8\">{inner}</ul>\
+<button class=\"act foldbtn\" type=\"button\">展开全部 <span class=\"en\">SHOW ALL (+{})</span></button></div>",
                         done.len() - 8
                     )
                 } else {
-                    inner
-                }
-            };
-            let mut rows: Vec<String> = open
-                .iter()
-                .map(|e| entry_row(e, "", false))
-                .collect();
-            if rows.is_empty() && done_rows.is_empty() {
-                rows.push("<div class=\"empty\">no todos.</div>".into());
+                    format!("<ul class=\"rows\">{inner}</ul>")
+                };
+                bands.push_str(&render::band(
+                    "",
+                    "02 / DONE",
+                    "已完成",
+                    &format!("<b>{}</b> 条 <span class=\"en\">DONE</span>", done.len()),
+                    &done_body,
+                    "reveal reveal-3",
+                ));
             }
-            if !done_rows.is_empty() {
-                rows.push(done_rows);
-            }
-            let sub = format!(" // <b>{}</b> OPEN", open.len());
-            (rows.join("\n"), sub)
+            sub = format!("<b>{}</b> 条未完成 · <b>{}</b> 条已完成", open.len(), done.len());
         } else {
             let list: Vec<&Entry> = entries.iter().filter(|e| e.dir == dir).collect();
-            let rows = if list.is_empty() {
-                "<div class=\"empty\">nothing here yet.</div>".to_string()
+            let rows: String = list
+                .iter()
+                .map(|e| render::entry_row(e, "", true, &today))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let body = if list.is_empty() {
+                "<p class=\"empty\">这里还没有内容。可以这样写入：mind new idea \"标题\"</p>".to_string()
             } else {
-                list.iter().map(|e| entry_row(e, "", false)).collect::<Vec<_>>().join("\n")
+                format!("<ul class=\"rows\">{rows}</ul>")
             };
-            (rows, String::new())
+            bands.push_str(&render::band(
+                "",
+                "01 / LIST",
+                "全部条目",
+                &format!("<b>{}</b> 条", list.len()),
+                &body,
+                "reveal reveal-2",
+            ));
+            sub = format!("<b>{}</b> 条", list.len());
+        }
+        let ident = match dir {
+            "inbox" => "INBOX",
+            "todo" => "TODOS",
+            "ideas" => "IDEAS",
+            _ => "NOTES",
         };
-        let body = format!(
-            "<div class=\"panel\" style=\"margin-top:14px\" data-word=\"{up}\">\n<div class=\"label\"><b>01</b> // {up}{sub}</div>\n{rows}\n</div>",
-            up = dir.to_uppercase(),
-        );
-        let html = page_html(dir, dir, &body, &built, &count_line);
-        fs::write(dist.join(format!("{dir}.html")), html).unwrap();
+        let (kicker_cjk, kicker_en) = match dir {
+            "inbox" => ("收件箱", "INBOX"),
+            "todo" => ("待办", "TODOS"),
+            "ideas" => ("想法", "IDEAS"),
+            _ => ("笔记", "NOTES"),
+        };
+        let st = render::stage(&render::kicker(kicker_cjk, kicker_en), ident, &sub, "", "", "reveal");
+        let page = render::Page::new(dir, dir)
+            .stage(st)
+            .body(format!("<div class=\"bands\">{bands}</div>"));
+        fs::write(dist.join(format!("{dir}.html")), render::render(&page, &built, &count_line))
+            .unwrap();
     }
 
     // ---- index dashboard
-    let open_todos: Vec<&Entry> = entries.iter().filter(is_open_todo).collect();
-    let n_todo_open = open_todos.len();
-    let n_inbox = entries.iter().filter(|e| e.dir == "inbox").count();
-    let n_ideas = entries.iter().filter(|e| e.dir == "ideas").count();
-    let n_notes = entries.iter().filter(|e| e.dir == "notes").count();
-    let n_archive = entries.iter().filter(|e| e.dir == "archive").count();
+    let open_todos: Vec<&Entry> = entries.iter().filter(|e| is_open_todo(e)).collect();
+    let n_more = open_todos.len().saturating_sub(12);
 
     // RECENT = 捕获流：排除归档回流与已完成 todo
     let recent: Vec<&Entry> = entries
@@ -1658,76 +1490,92 @@ fn cmd_build(vault: PathBuf) {
         .filter(|e| e.dir != "archive" && !is_done_entry(e))
         .take(20)
         .collect();
-    let recent_rows = if recent.is_empty() {
-        "<div class=\"empty\">vault is empty — run: mind new idea \"hello\"</div>".to_string()
+    let recent_rows: String = recent
+        .iter()
+        .map(|e| render::entry_row(e, "", true, &today))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let recent_body = if recent.is_empty() {
+        "<p class=\"empty\">库还是空的。试试：mind new idea \"第一个想法\"</p>".to_string()
+    } else if recent.len() > 8 {
+        format!(
+            "<div class=\"foldwrap\"><ul class=\"rows\" data-fold=\"8\">{recent_rows}</ul>\
+<button class=\"act foldbtn\" type=\"button\">展开全部 <span class=\"en\">SHOW ALL (+{})</span></button></div>",
+            recent.len() - 8
+        )
     } else {
-        let inner = recent
-            .iter()
-            .map(|e| entry_row(e, "", true))
-            .collect::<Vec<_>>()
-            .join("\n");
-        // 默认展示 8 条，超出折叠（foldwrap + JS 展开）
-        if recent.len() > 8 {
-            format!(
-                "<div class=\"foldwrap\" data-fold=\"8\">\n{inner}\n<button class=\"tbtn foldbtn\">SHOW ALL (+{})</button>\n</div>",
-                recent.len() - 8
-            )
-        } else {
-            inner
-        }
+        format!("<ul class=\"rows\">{recent_rows}</ul>")
     };
-    // OPEN TODOS 按 due 升序（overdue 优先），无 due 靠后；超出 12 条折叠
-    let mut sorted_todos: Vec<&&Entry> = open_todos.iter().collect();
-    sorted_todos.sort_by_key(|e| e.fm.due.clone().unwrap_or_else(|| "9999".into()));
-    let n_more = sorted_todos.len().saturating_sub(12);
-    let mut todo_parts: Vec<String> = sorted_todos
+    // 左缘年表刻度与捕获流共享同一组 created 时间
+    let recent_body = format!(
+        "<div class=\"scale-col\">{}{recent_body}</div>",
+        render::scale(&recent)
+    );
+
+    let mut todo_rows: Vec<String> = open_todos
         .iter()
         .take(12)
-        .map(|e| {
-            format!(
-                "<div class=\"row\"><div><span class=\"dot\"></span><a class=\"t serif\" href=\"pages/{}.html\">{}</a></div>{}</div>",
-                esc(&e.stem),
-                esc(&e.fm.title),
-                due_span(e)
-            )
-        })
+        .map(|e| render::entry_row(e, "", true, &today))
         .collect();
     if n_more > 0 {
-        todo_parts.push(format!(
-            "<div class=\"row\"><a href=\"todo.html\"><span class=\"m\">… {} more open todos</span></a></div>",
+        todo_rows.push(format!(
+            "<li class=\"row\"><span class=\"row-date\">…</span><div class=\"row-main\">\
+<a class=\"row-title\" href=\"todo.html\">还有 {} 条未完成</a></div><div class=\"row-side\"></div></li>",
             n_more
         ));
     }
-    let todo_rows = if todo_parts.is_empty() {
-        "<div class=\"empty\">no open todos.</div>".to_string()
+    let todo_body = if todo_rows.is_empty() {
+        "<p class=\"empty\">没有未完成的待办。</p>".to_string()
     } else {
-        todo_parts.join("\n")
+        format!("<ul class=\"rows\">{}</ul>", todo_rows.join("\n"))
     };
-    let today = Local::now().format("%Y-%m-%d").to_string();
-    let index_body = format!(
-        "<div class=\"panel hero\" data-word=\"SESSION\"><div><div class=\"label\"><b>01</b> // SESSION // {today}</div></div>\n\
-<div class=\"clock\"><span id=\"clock\">--:--</span><small>LOCAL TIME</small></div></div>\n\
-<div class=\"panel\" data-word=\"SEARCH\"><div class=\"label\"><b>00</b> // SEARCH</div><input id=\"q\" class=\"q\" type=\"search\" placeholder=\"SEARCH — TITLE / TAG / BODY\"><div id=\"results\"></div></div>\n\
-<div class=\"grid\">\n\
-<div class=\"vaultwrap\">\n\
-  <div class=\"panel\" data-word=\"VAULT\"><div class=\"label\"><b>02</b> // VAULT</div>\n\
-    <div class=\"stat\"><span>INBOX</span><span class=\"n\"><a href=\"inbox.html\">{n_inbox}</a></span></div>\n\
-    <div class=\"stat\"><span>TODO · OPEN</span><span class=\"n\"><a href=\"todo.html\">{n_todo_open}</a></span></div>\n\
-    <div class=\"stat\"><span>IDEAS</span><span class=\"n\"><a href=\"ideas.html\">{n_ideas}</a></span></div>\n\
-    <div class=\"stat\"><span>NOTES</span><span class=\"n\"><a href=\"notes.html\">{n_notes}</a></span></div>\n\
-    <div class=\"stat\"><span>ARCHIVE</span><span class=\"n\">{n_archive}</span></div>\n\
-  </div>\n\
-</div>\n\
-<div class=\"panel\" data-word=\"RECENT\"><div class=\"label\"><b>03</b> // RECENT CAPTURES</div>\n{recent_rows}\n</div>\n\
-<div class=\"panel\" data-word=\"TODOS\"><div class=\"label\"><b>04</b> // OPEN TODOS</div>\n{todo_rows}\n</div>\n\
-</div>",
+
+    let search_body = "<div class=\"composer\">\
+<label class=\"hint\" for=\"q\">关键词 KEYWORD</label>\
+<input id=\"q\" class=\"q\" type=\"search\" placeholder=\"输入关键词 / TYPE TO SEARCH\" autocomplete=\"off\">\
+<p class=\"hint\" id=\"qstatus\" role=\"status\">正在载入索引 / LOADING INDEX</p>\
+<div id=\"results\"></div></div>"
+        .to_string();
+
+    let bands = format!(
+        "<div class=\"bands is-split\">{}{}{}</div>",
+        render::band("", "00 / SEARCH", "检索", "标题 · 标签 · 正文", &search_body, "reveal reveal-2 is-wide"),
+        render::band(
+            "",
+            "01 / RECENT",
+            "最近捕获",
+            &format!("<b>{}</b> 条（显示最近 <b>{}</b> 条）", recent.len(), recent.len().min(8)),
+            &recent_body,
+            "reveal reveal-3",
+        ),
+        render::band(
+            "",
+            "02 / OPEN",
+            "未完成待办",
+            &format!("<b>{}</b> 条", open_todos.len()),
+            &todo_body,
+            "reveal reveal-4",
+        ),
     );
-    let html = page_html("dashboard", "index", &index_body, &built, &count_line);
-    fs::write(dist.join("index.html"), html).unwrap();
+
+    let index_stage = render::stage(
+        &render::kicker("个人档案库", "PERSONAL ARCHIVE"),
+        "ARCHIVE",
+        &format!(
+            "<span class=\"en\">SESSION</span> <b>{today}</b> · <span class=\"en\">LOCAL</span> \
+<b><span id=\"clock\">--:--</span></b> · <b>{total}</b> <span class=\"en\">ENTRIES</span>"
+        ),
+        &format!("{instrument}{}", render::activity(&days)),
+        "",
+        "reveal",
+    );
+    let index_page = render::Page::new("dashboard", "index")
+        .stage(index_stage)
+        .body(bands);
+    fs::write(dist.join("index.html"), render::render(&index_page, &built, &count_line)).unwrap();
 
     println!(
-        "built {} entries -> {}/dist (index + 4 pages + tags + {} detail pages + search.json)",
-        total,
+        "built {total} entries -> {}/dist (index + 4 pages + tags + {} detail pages + search.json)",
         vault.display(),
         entries.len()
     );

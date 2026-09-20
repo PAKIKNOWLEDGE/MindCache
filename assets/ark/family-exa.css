@@ -1,0 +1,115 @@
+/* MindCache · ark-ui family = exa（宇宙档案系统）
+   本文件管字体、几何、时长与家族的视觉母题（圆环、刻度、三角、mask）。
+   颜色一律来自 appearance.css；层数与仪器可见性来自 depth-*.css。 */
+
+/* HarmonyOS Sans SC：GB2312 子集，随二进制分发，授权文件见 assets/fonts/LICENSE-HarmonyOS-Sans.txt。
+   子集外字符由浏览器按字符回退到栈内下一字体。 */
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url(fonts/HarmonyOS_Sans_SC_Regular.woff2) format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url(fonts/HarmonyOS_Sans_SC_Bold.woff2) format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  /* 三个字体角色：叙事（衬线）/ 控件（技术无衬线）/ 数据（等宽）
+     汉字兜底：衬线栈里的 Noto Serif SC / Source Han Serif SC / Songti SC 在多数机器上
+     并不存在，缺了它标题的汉字会掉进系统宋体（实测 STSong）。这里插入随二进制分发的
+     HarmonyOS Sans SC 作为兜底：有真衬线的机器仍用衬线，没有的用内嵌无衬线，
+     栈尾再留 STSong/SimSun 兜最后一道。 */
+  --ark-font-narrative: Georgia, "Times New Roman", "Noto Serif SC", "Source Han Serif SC", "Songti SC", "HarmonyOS Sans SC", STSong, SimSun, serif;
+  --ark-font-ui: "HarmonyOS Sans SC", MiSans, "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  --ark-font-data: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+
+  /* 几何：直角为主，功能件 2px */
+  --ark-radius: 2px;
+  --ark-rail-w: 92px;
+  --ark-band-gap: 0px;
+
+  /* 时长：直接反馈 180–350ms / 揭示 500–900ms / 关注循环 2s */
+  --ark-dur-fast: .18s;
+  --ark-ease: cubic-bezier(.22, .8, .2, 1);
+}
+
+/* 母题 1：细轨（描边 + 一条内轨的行动件） */
+.act::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  flex: none;
+}
+
+/* 母题 2：圆环仪器（库内分布，逐段对应真实计数） */
+.ring {
+  width: 148px;
+  height: 148px;
+  flex: none;
+}
+.ring-num {
+  font-family: var(--ark-font-data);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--ark-stage-ink);
+}
+.ring-cap {
+  font-family: var(--ark-font-data);
+  font-size: 9px;
+  letter-spacing: .18em;
+  fill: var(--ark-stage-muted);
+}
+
+/* 母题 3：年表刻度（左缘细尺，刻度点按 created 时间等比落位） */
+.scale {
+  position: relative;
+  width: 34px;
+  flex: none;
+  border-left: 1px solid var(--ark-line);
+}
+.scale-tick {
+  position: absolute;
+  left: -1px;
+  width: 7px;
+  height: 1px;
+  background: var(--ark-line);
+}
+.scale-tick.is-end {
+  width: 12px;
+  background: var(--ark-signal);
+}
+.scale-tick.is-top { top: 0; }
+.scale-tick.is-bottom { bottom: 0; }
+.scale-end {
+  position: absolute;
+  left: 13px;
+  font-family: var(--ark-font-data);
+  font-size: 9px;
+  letter-spacing: .08em;
+  color: var(--ark-muted);
+  white-space: nowrap;
+}
+.scale-end.is-top { top: 2px; }
+.scale-end.is-bottom { bottom: 2px; }
+
+/* 母题 5：捕获活动条（最近 N 天，逐日真实条数） */
+.activity {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 34px;
+}
+.activity-day {
+  width: 6px;
+  min-height: 2px;
+  background: var(--ark-line);
+}
+.activity-day.has {
+  background: var(--ark-signal);
+}
+
