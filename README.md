@@ -28,6 +28,21 @@ filesystem-first 个人知识库。AI Agent 是主要写入者，Markdown 文件
 
 vault 位置：`$MIND_VAULT` 或 `--vault PATH` 覆盖，默认 `~/mind`。
 
+## Dashboard 外观
+
+`mind build` 产出的 dashboard 按本地 skill `ark-ui` 的契约实现，两个轴分开：
+
+| 轴 | 取值 | 说明 |
+| --- | --- | --- |
+| family | `exa`（固定） | 午夜/纸白 + 水青信号色 + 衬线叙事字体；根属性 `data-ark-theme="exa"` |
+| depth | `moderate`（固定） | shell 重组 + 舞台层（分布圆环 / 年表刻度 / 14 天捕获条）；根属性 `data-ark-depth="moderate"` |
+| appearance | auto / light / dark | `data-ark-appearance`，跟随系统或手动，页头 `THEME 外观` 按钮切换 |
+| layout | list / grid | `data-ark-layout`，页头 `VIEW 视图` 按钮切换（GRID 让"最近捕获"与"未完成待办"并排） |
+
+- 样式在 `assets/ark/`：`appearance.css`（明暗）、`family-exa.css`（字体/几何/母题）、`depth-moderate.css`（层数与动效）、`base.css`（组件语法），构建时拼成 `dist/style.css`。
+- 偏好存在 `localStorage`：`mind-appearance`、`mind-layout`；旧的 `mind-theme` / `mind-density` 首次打开时自动迁移并清理。
+- 骨架：左侧竖栏导航（窄屏降级为底部动作条）、页面级舞台、`header/main/footer/nav` 地标、每页一个 `h1`、全局 `:focus-visible`、`prefers-reduced-motion` 有等价静态稿。
+
 ## NixOS 构建
 
 ```bash
@@ -40,9 +55,10 @@ nix-env -f . -iA mindcache      # 安装进用户 profile（PATH）
 
 ## 致谢与参考
 
-- **[dsh-theme-endfield](https://github.com/ymh0000123/dsh-theme-endfield)**（© 2026 ymh0000123，MIT）——endfield 主题的设计语言来源：奶油纸底 / 墨黑文字 / 信号色强调 / 全直角工业编辑风、启动加载动画等手法均参考其实现。本仓库只借鉴设计语言与交互概念，未复制其代码；参考副本仅存于本地 `design-ref/`（已 gitignore，不进仓库）。
-- **HarmonyOS Sans SC**（© 2021 Huawei Device Co., Ltd.）——endfield 主题内嵌中文字体（GB2312 子集 woff2），授权条款见 [assets/fonts/LICENSE-HarmonyOS-Sans.txt](assets/fonts/LICENSE-HarmonyOS-Sans.txt)。
-- **[ignoredone.space · 终末地美术资源系统](https://www.ignoredone.space/index.php/endfield_design/)**——其官方封面视觉走查为 endfield 增强层（方括号标题、底边裁切幽灵大字、左缘刻度尺、底边收边带）提供了构图参考。
+- **[ark-ui](.grok/skills/ark-ui/SKILL.md)**（本地 skill）——dashboard 视觉契约的来源：family `exa`、depth `moderate` 的判定标准、`family / depth / appearance` 三轴分离、以及"装饰层必须承担分组/方向/状态/世界观之一"的审查规则。
+- **[ignoredone.space · 终末地美术资源系统](https://www.ignoredone.space/index.php/endfield_design/)**——其官方封面视觉走查提供了构图参考：方括号标题、左缘刻度尺（本项目落到按 created 时间等比落位的年表刻度）、底边收边带。
+- **HarmonyOS Sans SC**（© 2021 Huawei Device Co., Ltd.）——内嵌中文字体（GB2312 子集 woff2），授权条款见 [assets/fonts/LICENSE-HarmonyOS-Sans.txt](assets/fonts/LICENSE-HarmonyOS-Sans.txt)。
+- **[dsh-theme-endfield](https://github.com/ymh0000123/dsh-theme-endfield)**（© 2026 ymh0000123，MIT）——早期一版 endfield 皮肤的设计语言来源；按 skill 的 family 判定（本产品无"现场任务/物流"语义，endfield 的 shell 签名无处兑现）该皮肤已整体移除，此处保留 MIT 出处记录。参考副本仅存于本地 `design-ref/`（已 gitignore，不进仓库）。
 
 ## 开发
 
